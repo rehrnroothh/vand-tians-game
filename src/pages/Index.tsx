@@ -1,15 +1,25 @@
 import { useState } from 'react';
 import PlayerSetup from '@/components/PlayerSetup';
 import GameBoard from '@/components/GameBoard';
+import { dealGame, GameState } from '@/lib/gameEngine';
 
 const Index = () => {
-  const [players, setPlayers] = useState<string[] | null>(null);
+  const [gameState, setGameState] = useState<GameState | null>(null);
 
-  if (!players) {
-    return <PlayerSetup onStart={setPlayers} />;
+  if (!gameState) {
+    return (
+      <PlayerSetup
+        onStart={(players) => setGameState(dealGame(players))}
+      />
+    );
   }
 
-  return <GameBoard players={players} onReset={() => setPlayers(null)} />;
+  return (
+    <GameBoard
+      initialState={gameState}
+      onReset={() => setGameState(null)}
+    />
+  );
 };
 
 export default Index;
