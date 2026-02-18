@@ -205,7 +205,10 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
           >
             <span className="text-xs font-bold text-primary-foreground/40">{state.drawPile.length}</span>
           </button>
-          <span className="text-[10px] text-muted-foreground mt-1 block">Talong</span>
+          <span className={`text-[10px] mt-1 block transition-colors ${canTryTalong ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+            Talong
+          </span>
+          <div className={`mx-auto mt-1 h-0.5 w-14 rounded-full transition-opacity ${canTryTalong ? 'bg-emerald-400 opacity-100' : 'bg-transparent opacity-0'}`} />
         </div>
 
         {/* Discard pile */}
@@ -313,15 +316,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
                 Ta upp högen
               </motion.button>
             )}
-            {state.discardPile.length > 0 && hasPlayableCard && !mustCoverTwoNow && (
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handlePickUp}
-                className="px-5 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm"
-              >
-                Ta upp
-              </motion.button>
-            )}
+            
           </>
         )}
       </div>
