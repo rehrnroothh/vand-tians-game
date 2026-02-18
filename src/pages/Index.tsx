@@ -1,25 +1,95 @@
-import { useState } from 'react';
-import PlayerSetup from '@/components/PlayerSetup';
-import GameBoard from '@/components/GameBoard';
-import { dealGame, GameState } from '@/lib/gameEngine';
+import { useEffect, useState } from 'react';
+import LobbyScreen from '@/components/LobbyScreen';
+import WaitingRoom from '@/components/WaitingRoom';
+import OnlineGameBoard from '@/components/OnlineGameBoard';
+import { getOrCreateSessionId } from '@/lib/roomService';
+import { supabase } from '@/integrations/supabase/client';
+
+type Screen = 'lobby' | 'waiting' | 'game';
+
+interface RoomInfo {
+  roomId: string;
+  roomCode: string;
+  sessionId: string;
+  playerName: string;
+  isHost: boolean;
+  playerIndex: number;
+}
 
 const Index = () => {
-  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [screen, setScreen] = useState<Screen>('lobby');
+  const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
 
-  if (!gameState) {
+  // Handle deep link join codes (?join=CODE)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const joinCode = params.get('join');
+    if (joinCode) {
+      // Pre-fill the code and switch to join mode by storing it
+      localStorage.setItem('vt_pending_join', joinCode);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  // If we're in waiting room, check if game already started (rejoin)
+  useEffect(() => {
+    if (screen === 'waiting' && roomInfo) {
+      supabase.from('rooms').select('status').eq('id', roomInfo.roomId).single().then(({ data }) => {
+        if (data?.status === 'playing') setScreen('game');
+      });
+    }
+  }, [screen, roomInfo]);
+
+  const handleJoined = (roomId: string, roomCode: string, sessionId: string, playerName: string, isHost: boolean) => {
+    setRoomInfo({ roomId, roomCode, sessionId, playerName, isHost, playerIndex: 0 });
+    setScreen('waiting');
+  };
+
+  const handleGameStart = async () => {
+    if (!roomInfo) return;
+    // Find our player index from the room
+    const { data: players } = await supabase
+      .from('room_players')
+      .select()
+      .eq('room_id', roomInfo.roomId)
+      .order('player_index');
+    
+    const myPlayer = players?.find(p => p.session_id === roomInfo.sessionId);
+    const idx = myPlayer?.player_index ?? 0;
+    setRoomInfo(prev => prev ? { ...prev, playerIndex: idx } : prev);
+    setScreen('game');
+  };
+
+  if (screen === 'lobby') {
+    return <LobbyScreen onJoined={handleJoined} />;
+  }
+
+  if (screen === 'waiting' && roomInfo) {
     return (
-      <PlayerSetup
-        onStart={(players) => setGameState(dealGame(players))}
+      <WaitingRoom
+        roomId={roomInfo.roomId}
+        roomCode={roomInfo.roomCode}
+        sessionId={roomInfo.sessionId}
+        playerName={roomInfo.playerName}
+        isHost={roomInfo.isHost}
+        onGameStart={handleGameStart}
       />
     );
   }
 
-  return (
-    <GameBoard
-      initialState={gameState}
-      onReset={() => setGameState(null)}
-    />
-  );
+  if (screen === 'game' && roomInfo) {
+    return (
+      <OnlineGameBoard
+        roomId={roomInfo.roomId}
+        sessionId={roomInfo.sessionId}
+        playerIndex={roomInfo.playerIndex}
+        onReset={() => setScreen('lobby')}
+      />
+    );
+  }
+
+  return null;
 };
 
 export default Index;
