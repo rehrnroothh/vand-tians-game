@@ -52,11 +52,11 @@ const LobbyScreen = ({ onJoined }: LobbyScreenProps) => {
           animate={{ scale: 1 }}
           className="text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-2 text-gold tracking-tight leading-tight px-2"
         >
-          Ska vi spela
+          "Ska vi spela
           <br />
-          vändtia??!
+          vändtia??!"
         </motion.h1>
-        <p className="text-center text-muted-foreground mb-10">Dedikerad till Kallekutt Froms</p>
+        <p className="text-center text-muted-foreground mb-10">- Kallekutt Froms</p>
 
         {mode === 'home' && (
           <div className="flex flex-col gap-4">
