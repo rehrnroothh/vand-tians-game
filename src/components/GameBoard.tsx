@@ -193,13 +193,13 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
         {/* Discard pile */}
         <div className="text-center">
           {topDiscard ? (
-            <MiniCard card={topDiscard} disabled />
+            <MiniCard card={topDiscard} />
           ) : (
             <div className="w-14 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center">
               <span className="text-xs text-muted-foreground">Tom</span>
             </div>
           )}
-          <span className="text-[10px] text-muted-foreground mt-1 block">
+          <span className="text-[10px] text-white mt-1 block">
             Hög ({state.discardPile.length})
           </span>
         </div>
@@ -271,7 +271,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={handleConfirmSwap}
-            className="px-6 py-3 rounded-xl bg-gold text-primary-foreground font-semibold glow-gold"
+            className="px-6 py-3 rounded-xl bg-gold text-white font-semibold glow-gold"
           >
             ✓ Klar med byten
           </motion.button>
@@ -281,7 +281,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={handlePlay}
-                className="px-5 py-3 rounded-xl bg-gold text-primary-foreground font-semibold glow-gold flex items-center gap-2"
+                className="px-5 py-3 rounded-xl bg-emerald-500 text-white font-semibold flex items-center gap-2"
               >
                 <ArrowUp size={16} /> Spela
               </motion.button>

@@ -101,7 +101,7 @@ const PlayerSetup = ({ onStart }: PlayerSetupProps) => {
           whileTap={{ scale: canStart ? 0.98 : 1 }}
           onClick={() => canStart && onStart(validPlayers)}
           disabled={!canStart}
-          className="w-full py-4 rounded-xl bg-gold text-primary-foreground font-semibold text-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed glow-gold"
+          className="w-full py-4 rounded-xl bg-gold text-white font-semibold text-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed glow-gold"
         >
           <span className="flex items-center justify-center gap-2">
             <Play size={20} />

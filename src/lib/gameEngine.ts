@@ -275,7 +275,9 @@ export const playCards = (
       if (idx !== -1) (source === 'hand' ? player.hand : player.faceUp).splice(idx, 1);
     }
   }
-  
+
+  const playerHasNoCards = hasWon(player);
+
   // Add to discard pile
   newState.discardPile.push(...cards);
   newState.lastPlayedCards = cards;
@@ -299,7 +301,7 @@ export const playCards = (
     if (hasWon(player)) {
       newState.winner = newState.currentPlayerIndex;
       newState.phase = 'finished';
-      newState.message = `🎉 ${player.name} vinner!`;
+      newState.message = `🎉 ${player.name} vinner!!!!!`;
       return newState;
     }
     
@@ -313,6 +315,16 @@ export const playCards = (
   if (newState.mustCoverTwo && newState.mustCoverTwoPlayerIndex === newState.currentPlayerIndex) {
     newState.mustCoverTwo = false;
     newState.mustCoverTwoPlayerIndex = null;
+  } else if (playedTwo && playerHasNoCards) {
+    // Special rule: if the player only had a 2 left, they don't win.
+    // They draw new cards from the talong and must immediately play again.
+    if (source === 'hand') {
+      refillHand(player, newState.drawPile);
+    }
+    newState.mustCoverTwo = true;
+    newState.mustCoverTwoPlayerIndex = newState.currentPlayerIndex;
+    newState.message = `${player.name} spelade sin sista 2️⃣ — fick nya kort och måste spela igen.`;
+    return newState;
   } else if (playedTwo) {
     // A 2 was just played (without clearing). Same player must immediately play again.
     newState.mustCoverTwo = true;

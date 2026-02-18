@@ -79,7 +79,7 @@ const WaitingRoom = ({ roomId, roomCode, sessionId, isHost, onGameStart }: Waiti
       <div className="gradient-radial fixed inset-0 pointer-events-none" />
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
         <h1 className="text-3xl font-bold text-center mb-1 text-gold">Väntar på spelare</h1>
-        <p className="text-center text-muted-foreground mb-6">Bjud in dina kompisar!</p>
+        <p className="text-center text-muted-foreground mb-6">Bjud in fölket!</p>
 
         {/* Room code display */}
         <div className="bg-card border border-border rounded-2xl p-5 mb-6 text-center">

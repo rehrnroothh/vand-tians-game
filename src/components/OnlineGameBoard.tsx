@@ -132,7 +132,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
           <span className="text-6xl mb-4 block">🏆</span>
           <h2 className="text-3xl font-bold text-gold mb-2">{winner?.name} vinner!</h2>
           <p className="text-muted-foreground mb-8">
-            {state.winner === playerIndex ? 'Det är du! 🎉' : 'Bättre lycka nästa gång!'}
+            {state.winner === playerIndex ? 'Bra jobb förfään! 🎉' : 'Det sög ju..'}
           </p>
           <button onClick={onReset} className="px-6 py-3 rounded-xl bg-gold text-primary-foreground font-semibold glow-gold">Tillbaka till lobby</button>
         </motion.div>
@@ -146,10 +146,10 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
 
       {/* Header */}
       <div className="fixed top-0 left-0 right-0 p-3 flex items-center justify-between z-20 bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="text-sm text-muted-foreground">📦 {state.drawPile.length} kvar</div>
+        <div className="text-sm text-muted-foreground"> {state.drawPile.length} kvar</div>
         <AnimatePresence mode="wait">
-          <motion.div key={state.currentPlayerIndex} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className={`text-sm font-semibold ${isMyTurn ? 'text-gold' : 'text-muted-foreground'}`}>
-            {isMyTurn ? '⭐ Din tur!' : `${state.players[state.currentPlayerIndex]?.name}s tur...`}
+          <motion.div key={state.currentPlayerIndex} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className={`text-sm font-semibold ${isMyTurn ? 'text-white' : 'text-muted-foreground'}`}>
+            {isMyTurn ? ' Din tur din Sate!'  : `${state.players[state.currentPlayerIndex]?.name}s tur...`}
           </motion.div>
         </AnimatePresence>
         <button onClick={onReset} className="p-1.5 rounded-lg bg-secondary text-muted-foreground"><RotateCcw size={16} /></button>
@@ -184,12 +184,12 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
           <span className="text-[10px] text-muted-foreground mt-1 block">Talong</span>
         </div>
         <div className="text-center">
-          {topDiscard ? <MiniCard card={topDiscard} disabled /> : (
+          {topDiscard ? <MiniCard card={topDiscard} /> : (
             <div className="w-14 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center">
               <span className="text-xs text-muted-foreground">Tom</span>
             </div>
           )}
-          <span className="text-[10px] text-muted-foreground mt-1 block">Hög ({state.discardPile.length})</span>
+          <span className="text-[10px] text-white mt-1 block">Hög ({state.discardPile.length})</span>
         </div>
       </div>
 
@@ -243,13 +243,16 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       {/* Actions */}
       <div className="flex gap-3 justify-center mt-4">
         {isSwapPhase ? (
-          <button onClick={handleConfirmSwap} className="px-6 py-3 rounded-xl bg-gold text-primary-foreground font-semibold glow-gold">
+          <button onClick={handleConfirmSwap} className="px-6 py-3 rounded-xl bg-gold text-white font-semibold glow-gold">
             ✓ Klar med byten
           </button>
         ) : isMyTurn ? (
           <>
             {canPlay && (
-              <button onClick={handlePlay} className="px-5 py-3 rounded-xl bg-gold text-primary-foreground font-semibold glow-gold flex items-center gap-2">
+              <button
+                onClick={handlePlay}
+                className="px-5 py-3 rounded-xl bg-emerald-500 text-white font-semibold flex items-center gap-2"
+              >
                 <ArrowUp size={16} /> Spela
               </button>
             )}
