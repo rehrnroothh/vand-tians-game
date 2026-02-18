@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { GameState, getPlaySource, canPlayCard, playCards, pickUpPile, swapCards, confirmSwap, getPlayableCards, drawAndTryFromTalong } from '@/lib/gameEngine';
-import { updateGameState } from '@/lib/roomService';
+import { Card, GameState, getPlaySource, canPlayCard, playCards, pickUpPile, swapCards, confirmSwap, getPlayableCards, drawAndTryFromTalong } from '@/lib/gameEngine';import { updateGameState } from '@/lib/roomService';
 import MiniCard from './MiniCard';
 import { ArrowUp, Hand, RotateCcw } from 'lucide-react';
 
@@ -129,6 +128,54 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     source !== 'faceDown' &&
     !hasPlayableCard;
 
+
+    const renderTableStack = (
+      faceDownCard: Card | undefined,
+      faceUpCard: Card | undefined,
+      options?: {
+        allowFaceDownPlay?: boolean;
+        allowFaceUpSelection?: boolean;
+        faceUpSelected?: boolean;
+        onFaceDownClick?: () => void;
+        onFaceUpClick?: () => void;
+      },
+    ) => {
+      const showFaceDown = !!faceDownCard;
+      const showFaceUp = !!faceUpCard;
+  
+      if (!showFaceDown && !showFaceUp) {
+        return <div className="w-12 h-[4.2rem] rounded-lg border border-dashed border-border/30" />;
+      }
+  
+      return (
+        <div className="relative w-12 h-[4.2rem]">
+          {showFaceDown && (
+            <div className="absolute inset-0">
+              <MiniCard
+                card={faceDownCard}
+                faceDown
+                small
+                disabled={!options?.allowFaceDownPlay}
+                onClick={options?.onFaceDownClick}
+              />
+            </div>
+          )}
+          {showFaceUp && (
+            <div className="absolute inset-0 z-10">
+              <MiniCard
+                card={faceUpCard}
+                small
+                selected={options?.faceUpSelected}
+                disabled={!options?.allowFaceUpSelection}
+                onClick={options?.onFaceUpClick}
+              />
+            </div>
+          )}
+        </div>
+      );
+    };
+  
+
   if (state.phase === 'finished') {
     const winner = state.players[state.winner!];
     return (
@@ -162,13 +209,30 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       </div>
 
       {/* Other players */}
-      <div className="flex gap-2 justify-center mb-4 flex-wrap">
+      <div className="flex gap-2 justify-center mb-2 flex-wrap">
         {state.players.map((p, i) => {
           if (i === playerIndex) return null;
           const total = p.hand.length + p.faceUp.length + p.faceDown.length;
           return (
             <div key={i} className={`bg-card rounded-lg px-3 py-1.5 text-xs border ${i === state.currentPlayerIndex ? 'border-primary text-gold' : 'border-border text-muted-foreground'}`}>
               {p.name}: {total} kort
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex gap-3 justify-center mb-4 flex-wrap">
+        {state.players.map((p, i) => {
+          if (i === playerIndex) return null;
+
+          return (
+            <div key={`table-${i}`} className="rounded-lg border border-border/40 bg-card/40 p-2">
+              <p className="text-[10px] text-muted-foreground mb-1 text-center uppercase tracking-wider">{p.name} bordskort</p>
+              <div className="flex gap-2">
+                {[0, 1, 2].map(slot => (
+                  <div key={slot}>{renderTableStack(p.faceDown[slot], p.faceUp[slot])}</div>
+                ))}
+              </div>
             </div>
           );
         })}
@@ -219,20 +283,19 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
           <p className="text-xs text-muted-foreground mb-2 text-center uppercase tracking-wider">Bordskort</p>
           <div className="flex justify-center gap-3">
             {[0, 1, 2].map(i => (
-              <div key={i} className="flex flex-col items-center gap-1">
-                {me.faceDown[i] ? (
-                  <MiniCard card={me.faceDown[i]} faceDown small disabled={!isMyTurn || source !== 'faceDown'} onClick={() => isMyTurn && source === 'faceDown' && toggleSelect(me.faceDown[i].id)} />
-                ) : <div className="w-12 h-[4.2rem] rounded-lg border border-dashed border-border/30" />}
-                {me.faceUp[i] ? (
-                  <MiniCard card={me.faceUp[i]} small
-                    selected={isSwapPhase ? swapSource?.id === me.faceUp[i].id : selectedCards.includes(me.faceUp[i].id)}
-                    disabled={!isMyTurn || (!isSwapPhase && source !== 'faceUp')}
-                    onClick={() => {
-                      if (isSwapPhase) handleSwapClick('faceUp', me.faceUp[i].id);
-                      else if (source === 'faceUp' && isMyTurn) toggleSelect(me.faceUp[i].id);
-                    }}
-                  />
-                ) : <div className="w-12 h-[4.2rem] rounded-lg border border-dashed border-border/30" />}
+              <div key={i}>
+              {renderTableStack(me.faceDown[i], me.faceUp[i], {
+                allowFaceDownPlay: isMyTurn && source === 'faceDown',
+                allowFaceUpSelection: isMyTurn && (isSwapPhase || source === 'faceUp'),
+                faceUpSelected: me.faceUp[i] ? (isSwapPhase ? swapSource?.id === me.faceUp[i].id : selectedCards.includes(me.faceUp[i].id)) : false,
+                onFaceDownClick: () => isMyTurn && source === 'faceDown' && me.faceDown[i] && toggleSelect(me.faceDown[i].id),
+                onFaceUpClick: () => {
+                  if (!me.faceUp[i]) return;
+                  if (isSwapPhase) handleSwapClick('faceUp', me.faceUp[i].id);
+                  else if (source === 'faceUp' && isMyTurn) toggleSelect(me.faceUp[i].id);
+                },
+              })}
+
               </div>
             ))}
           </div>
