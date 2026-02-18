@@ -29,6 +29,8 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
   const source = getPlaySource(currentPlayer);
   const isSwapPhase = state.phase === 'swap';
   const isFinished = state.phase === 'finished';
+  const mustCoverTwoNow =
+    state.mustCoverTwo && state.mustCoverTwoPlayerIndex === state.currentPlayerIndex;
 
   const topDiscard = state.discardPile.length > 0
     ? state.discardPile[state.discardPile.length - 1]
@@ -284,7 +286,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
                 <ArrowUp size={16} /> Spela
               </motion.button>
             )}
-            {state.discardPile.length > 0 && !hasPlayableCard && source !== 'faceDown' && (
+            {state.discardPile.length > 0 && !hasPlayableCard && source !== 'faceDown' && !mustCoverTwoNow && (
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={handlePickUp}
@@ -293,7 +295,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
                 Ta upp högen
               </motion.button>
             )}
-            {state.discardPile.length > 0 && hasPlayableCard && (
+            {state.discardPile.length > 0 && hasPlayableCard && !mustCoverTwoNow && (
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={handlePickUp}

@@ -54,6 +54,8 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
   const me = state.players[playerIndex];
   const source = me ? getPlaySource(me) : 'hand';
   const topDiscard = state.discardPile.length > 0 ? state.discardPile[state.discardPile.length - 1] : null;
+  const mustCoverTwoNow =
+    state.mustCoverTwo && state.mustCoverTwoPlayerIndex === state.currentPlayerIndex;
 
   const applyAndSync = async (newState: GameState) => {
     setState(newState);
@@ -251,12 +253,12 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
                 <ArrowUp size={16} /> Spela
               </button>
             )}
-            {state.discardPile.length > 0 && !hasPlayableCard && source !== 'faceDown' && (
+            {state.discardPile.length > 0 && !hasPlayableCard && source !== 'faceDown' && !mustCoverTwoNow && (
               <button onClick={handlePickUp} className="px-5 py-3 rounded-xl bg-destructive text-destructive-foreground font-semibold">
                 Ta upp högen
               </button>
             )}
-            {state.discardPile.length > 0 && hasPlayableCard && (
+            {state.discardPile.length > 0 && hasPlayableCard && !mustCoverTwoNow && (
               <button onClick={handlePickUp} className="px-5 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold text-sm">
                 Ta upp
               </button>

@@ -21,6 +21,8 @@ export interface GameState {
   winner: number | null;
   message: string;
   lastPlayedCards: Card[];
+  mustCoverTwo: boolean;
+  mustCoverTwoPlayerIndex: number | null;
 }
 
 export const suitSymbols: Record<Card['suit'], string> = {
@@ -105,6 +107,8 @@ export const dealGame = (playerNames: string[]): GameState => {
     winner: null,
     message: `${playerNames[0]}: Byt kort mellan hand och uppvända kort, eller bekräfta.`,
     lastPlayedCards: [],
+    mustCoverTwo: false,
+    mustCoverTwoPlayerIndex: null,
   };
 };
 
@@ -275,12 +279,16 @@ export const playCards = (
   // Add to discard pile
   newState.discardPile.push(...cards);
   newState.lastPlayedCards = cards;
+  const playedTwo = cards[0].value === 2;
   
   // Check for 10 or four-of-a-kind → clear pile
   const isTen = cards[0].value === 10;
   const isFour = checkFourOfAKind(newState.discardPile);
   
   if (isTen || isFour) {
+    // Clearing the pile always cancels any pending "must cover 2"
+    newState.mustCoverTwo = false;
+    newState.mustCoverTwoPlayerIndex = null;
     newState.discardPile = [];
     // Refill hand
     if (source === 'hand') {
@@ -297,6 +305,19 @@ export const playCards = (
     
     // Same player goes again after clearing
     newState.message = `${isTen ? '🔥 Tia!' : '💥 Fyra lika!'} Högen rensad! ${player.name} spelar igen.`;
+    return newState;
+  }
+
+  // If this play is the follow-up after a 2 that the same player previously played,
+  // clear the "must cover 2" requirement and continue as a normal turn.
+  if (newState.mustCoverTwo && newState.mustCoverTwoPlayerIndex === newState.currentPlayerIndex) {
+    newState.mustCoverTwo = false;
+    newState.mustCoverTwoPlayerIndex = null;
+  } else if (playedTwo) {
+    // A 2 was just played (without clearing). Same player must immediately play again.
+    newState.mustCoverTwo = true;
+    newState.mustCoverTwoPlayerIndex = newState.currentPlayerIndex;
+    newState.message = `${player.name} spelade en 2️⃣ — spela ett kort ovanpå tvåan innan turen går vidare.`;
     return newState;
   }
   
@@ -322,6 +343,14 @@ export const playCards = (
 
 // Pick up the entire discard pile
 export const pickUpPile = (state: GameState): GameState => {
+  // If the current player is forced to cover a 2, they may not pick up.
+  if (state.mustCoverTwo && state.mustCoverTwoPlayerIndex === state.currentPlayerIndex) {
+    return {
+      ...state,
+      message: `${state.players[state.currentPlayerIndex].name}: Du måste spela ett kort ovanpå tvåan innan du kan ta upp högen.`,
+    };
+  }
+
   const newState = structuredClone(state);
   const player = newState.players[newState.currentPlayerIndex];
   
