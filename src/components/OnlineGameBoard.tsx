@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, GameState, getPlaySource, canPlayCard, playCards, pickUpPile, swapCards, confirmSwap, getPlayableCards, drawAndTryFromTalong } from '@/lib/gameEngine';import { updateGameState } from '@/lib/roomService';
+import { Card, GameState, getPlaySource, canPlayCard, playCards, pickUpPile, swapCards, confirmSwap, getPlayableCards, drawAndTryFromTalong } from '@/lib/gameEngine';
+import { updateGameState } from '@/lib/roomService';
 import MiniCard from './MiniCard';
-import { ArrowUp, Hand, RotateCcw } from 'lucide-react';
+import { ArrowUp, Hand, RotateCcw, LogOut } from 'lucide-react';
 
 interface OnlineGameBoardProps {
   roomId: string;
@@ -16,6 +17,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
   const [state, setState] = useState<GameState | null>(null);
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [swapSource, setSwapSource] = useState<{ type: 'hand' | 'faceUp'; id: string } | null>(null);
+  const [leftPlayers, setLeftPlayers] = useState<Set<number>>(new Set());
   const stateRef = useRef<GameState | null>(null);
 
   // Keep ref in sync for subscription callback
@@ -38,6 +40,44 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
 
     return () => { supabase.removeChannel(channel); };
   }, [roomId]);
+
+  // Presence tracking for leave detection
+  useEffect(() => {
+    // Fetch session-to-index mapping
+    let sessionToIndex: Record<string, number> = {};
+    supabase.from('room_players').select('session_id, player_index').eq('room_id', roomId).then(({ data }) => {
+      if (data) {
+        data.forEach(p => {
+          if (p.player_index !== null) sessionToIndex[p.session_id] = p.player_index;
+        });
+      }
+    });
+
+    const presenceChannel = supabase.channel(`presence-${roomId}`);
+    
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        const presenceState = presenceChannel.presenceState();
+        const onlineSessionIds = new Set(
+          Object.values(presenceState).flat().map((p: any) => p.sid)
+        );
+        // Find player indices that are no longer present
+        const gone = new Set<number>();
+        Object.entries(sessionToIndex).forEach(([sid, idx]) => {
+          if (idx !== playerIndex && !onlineSessionIds.has(sid)) {
+            gone.add(idx);
+          }
+        });
+        setLeftPlayers(gone);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({ sid: sessionId });
+        }
+      });
+
+    return () => { supabase.removeChannel(presenceChannel); };
+  }, [roomId, sessionId, playerIndex]);
 
   if (!state) return (
     <div className="flex min-h-screen items-center justify-center">
@@ -213,9 +253,12 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
         {state.players.map((p, i) => {
           if (i === playerIndex) return null;
           const total = p.hand.length + p.faceUp.length + p.faceDown.length;
+          const hasLeft = leftPlayers.has(i);
           return (
-            <div key={i} className={`bg-card rounded-lg px-3 py-1.5 text-xs border ${i === state.currentPlayerIndex ? 'border-primary text-gold' : 'border-border text-muted-foreground'}`}>
+            <div key={i} className={`bg-card rounded-lg px-3 py-1.5 text-xs border ${i === state.currentPlayerIndex ? 'border-primary text-gold' : 'border-border text-muted-foreground'} ${hasLeft ? 'opacity-50' : ''}`}>
+              {hasLeft && <LogOut size={10} className="inline mr-1 text-destructive" />}
               {p.name}: {total} kort
+              {hasLeft && <span className="ml-1 text-destructive">(lämnat)</span>}
             </div>
           );
         })}
