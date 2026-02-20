@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { createRoom, joinRoom } from '@/lib/roomService';
-import { Loader2, Plus, LogIn } from 'lucide-react';
+import { Loader2, Plus, LogIn, User } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import AuthDialog from './AuthDialog';
 
 interface LobbyScreenProps {
   onJoined: (roomId: string, roomCode: string, sessionId: string, playerName: string, isHost: boolean) => void;
@@ -13,6 +15,16 @@ const LobbyScreen = ({ onJoined }: LobbyScreenProps) => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [authOpen, setAuthOpen] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setLoggedIn(!!data.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setLoggedIn(!!session?.user);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -46,6 +58,14 @@ const LobbyScreen = ({ onJoined }: LobbyScreenProps) => {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-6">
       <div className="gradient-radial fixed inset-0 pointer-events-none" />
+      <button
+        onClick={() => setAuthOpen(true)}
+        className="fixed top-4 right-4 z-20 flex items-center gap-2 rounded-full bg-card border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <User size={16} />
+        {loggedIn ? 'Konto' : 'Logga in'}
+      </button>
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-sm">
         <motion.h1
           initial={{ scale: 0.9 }}
