@@ -165,8 +165,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
       const robotCanTryTalong =
         state.phase === 'play' &&
         state.discardPile.length > 0 &&
-        state.drawPile.length > 0 &&
-        robotSource !== 'faceDown';
+        state.drawPile.length > 0;
 
       if (robotCanTryTalong) {
         setState(drawAndTryFromTalong(state));
