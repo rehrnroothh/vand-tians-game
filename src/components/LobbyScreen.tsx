@@ -61,14 +61,14 @@ const LobbyScreen = ({ onJoined, onStartSinglePlayer }: LobbyScreenProps) => {
 
         {mode === 'home' && (
           <div className="flex flex-col gap-4">
-            <button onClick={() => setMode('single')} className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg flex items-center justify-center gap-2">
-              🤖 Spela mot robot
-            </button>
             <button onClick={() => setMode('create')} className="w-full py-4 rounded-xl bg-gold text-white font-semibold text-lg glow-gold flex items-center justify-center gap-2">
               <Plus size={20} /> Skapa nytt rum
             </button>
             <button onClick={() => setMode('join')} className="w-full py-4 rounded-xl bg-secondary text-secondary-foreground font-semibold text-lg flex items-center justify-center gap-2">
               <LogIn size={20} /> Gå med i rum
+            </button>
+            <button onClick={() => setMode('single')} className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg flex items-center justify-center gap-2">
+              🤖 Single-player
             </button>
           </div>
         )}
