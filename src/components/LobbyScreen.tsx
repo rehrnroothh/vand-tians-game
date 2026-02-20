@@ -5,10 +5,11 @@ import { Loader2, Plus, LogIn } from 'lucide-react';
 
 interface LobbyScreenProps {
   onJoined: (roomId: string, roomCode: string, sessionId: string, playerName: string, isHost: boolean) => void;
+  onStartSinglePlayer: (playerName: string) => void;
 }
 
-const LobbyScreen = ({ onJoined }: LobbyScreenProps) => {
-  const [mode, setMode] = useState<'home' | 'create' | 'join'>('home');
+const LobbyScreen = ({ onJoined, onStartSinglePlayer }: LobbyScreenProps) => {
+  const [mode, setMode] = useState<'home' | 'single' | 'create' | 'join'>('home');
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -60,11 +61,42 @@ const LobbyScreen = ({ onJoined }: LobbyScreenProps) => {
 
         {mode === 'home' && (
           <div className="flex flex-col gap-4">
+            <button onClick={() => setMode('single')} className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg flex items-center justify-center gap-2">
+              🤖 Spela mot robot
+            </button>
             <button onClick={() => setMode('create')} className="w-full py-4 rounded-xl bg-gold text-white font-semibold text-lg glow-gold flex items-center justify-center gap-2">
               <Plus size={20} /> Skapa nytt rum
             </button>
             <button onClick={() => setMode('join')} className="w-full py-4 rounded-xl bg-secondary text-secondary-foreground font-semibold text-lg flex items-center justify-center gap-2">
               <LogIn size={20} /> Gå med i rum
+            </button>
+          </div>
+        )}
+
+        {mode === 'single' && (
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-muted-foreground mb-1 block">Ditt namn</label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Vad heter du?"
+                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                maxLength={20}
+              />
+            </div>
+
+            <button
+              onClick={() => onStartSinglePlayer(name.trim())}
+              disabled={!name.trim()}
+              className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg disabled:opacity-40"
+            >
+              Starta mot robot
+            </button>
+
+            <button onClick={() => setMode('home')} className="w-full py-2 text-muted-foreground text-sm">
+              ← Tillbaka
             </button>
           </div>
         )}

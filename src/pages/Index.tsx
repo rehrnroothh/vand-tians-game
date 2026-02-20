@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import LobbyScreen from '@/components/LobbyScreen';
 import WaitingRoom from '@/components/WaitingRoom';
 import OnlineGameBoard from '@/components/OnlineGameBoard';
-import { getOrCreateSessionId } from '@/lib/roomService';
+import GameBoard from '@/components/GameBoard';
+import { GameState, dealGame } from '@/lib/gameEngine';
 import { supabase } from '@/integrations/supabase/client';
 
-type Screen = 'lobby' | 'waiting' | 'game';
+type Screen = 'lobby' | 'waiting' | 'game' | 'single';
 
 interface RoomInfo {
   roomId: string;
@@ -19,6 +20,7 @@ interface RoomInfo {
 const Index = () => {
   const [screen, setScreen] = useState<Screen>('lobby');
   const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
+  const [singlePlayerState, setSinglePlayerState] = useState<GameState | null>(null);
 
   // Handle deep link join codes (?join=CODE)
   useEffect(() => {
@@ -61,8 +63,14 @@ const Index = () => {
     setScreen('game');
   };
 
+  const handleSinglePlayerStart = (playerName: string) => {
+    const game = dealGame([playerName, 'Robot']);
+    setSinglePlayerState(game);
+    setScreen('single');
+  };
+
   if (screen === 'lobby') {
-    return <LobbyScreen onJoined={handleJoined} />;
+    return <LobbyScreen onJoined={handleJoined} onStartSinglePlayer={handleSinglePlayerStart} />;
   }
 
   if (screen === 'waiting' && roomInfo) {
@@ -85,6 +93,18 @@ const Index = () => {
         sessionId={roomInfo.sessionId}
         playerIndex={roomInfo.playerIndex}
         onReset={() => setScreen('lobby')}
+      />
+    );
+  }
+
+  if (screen === 'single' && singlePlayerState) {
+    return (
+      <GameBoard
+        initialState={singlePlayerState}
+        onReset={() => {
+          setSinglePlayerState(null);
+          setScreen('lobby');
+        }}
       />
     );
   }

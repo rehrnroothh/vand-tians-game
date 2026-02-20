@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import MiniCard from './MiniCard';
 import {
@@ -126,6 +126,58 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
     source !== 'faceDown' &&
     !hasPlayableCard;
 
+  useEffect(() => {
+    const isRobotTurn = currentPlayer.name.toLowerCase() === 'robot';
+    if (!isRobotTurn || isFinished) return;
+
+    const timer = setTimeout(() => {
+      if (state.phase === 'swap') {
+        setState(confirmSwap(state, state.currentPlayerIndex));
+        setSwapSource(null);
+        return;
+      }
+
+      const robot = state.players[state.currentPlayerIndex];
+      const robotSource = getPlaySource(robot);
+
+      if (robotSource === 'faceDown') {
+        const blindCard = robot.faceDown[0];
+        if (blindCard) {
+          setState(playCards(state, [blindCard.id]));
+        }
+        return;
+      }
+
+      const availableCards = robotSource === 'hand' ? robot.hand : robot.faceUp;
+      const playableCards = availableCards.filter(card => canPlayCard(card, state.discardPile));
+
+      if (playableCards.length > 0) {
+        const lowestPlayable = playableCards.reduce((lowest, card) =>
+          card.value < lowest.value ? card : lowest
+        );
+        const cardsToPlay = availableCards
+          .filter(card => card.value === lowestPlayable.value)
+          .map(card => card.id);
+        setState(playCards(state, cardsToPlay));
+        return;
+      }
+
+      const robotCanTryTalong =
+        state.phase === 'play' &&
+        state.discardPile.length > 0 &&
+        state.drawPile.length > 0 &&
+        robotSource !== 'faceDown';
+
+      if (robotCanTryTalong) {
+        setState(drawAndTryFromTalong(state));
+      } else {
+        setState(pickUpPile(state));
+      }
+    }, 900);
+
+    return () => clearTimeout(timer);
+  }, [currentPlayer, isFinished, state]);
+
   if (isFinished) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-6">
@@ -193,9 +245,9 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
         <div className="text-center">
           <button
             type="button"
-            disabled={!canTryTalong}
+            disabled={!canTryTalong || currentPlayer.name.toLowerCase() === 'robot'}
             onClick={() => {
-              if (!canTryTalong) return;
+              if (!canTryTalong || currentPlayer.name.toLowerCase() === 'robot') return;
               setState(drawAndTryFromTalong(state));
               setSelectedCards([]);
             }}
@@ -238,8 +290,8 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
                   card={currentPlayer.faceDown[i]}
                   faceDown
                   small
-                  disabled={source !== 'faceDown'}
-                  onClick={() => source === 'faceDown' && toggleSelect(currentPlayer.faceDown[i].id)}
+                  disabled={currentPlayer.name.toLowerCase() === 'robot' || source !== 'faceDown'}
+                  onClick={() => currentPlayer.name.toLowerCase() !== 'robot' && source === 'faceDown' && toggleSelect(currentPlayer.faceDown[i].id)}
                 />
               ) : (
                 <div className="w-12 h-[4.2rem] rounded-lg border border-dashed border-border/30" />
@@ -250,7 +302,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
                   card={currentPlayer.faceUp[i]}
                   small
                   selected={isSwapPhase ? swapSource?.id === currentPlayer.faceUp[i].id : selectedCards.includes(currentPlayer.faceUp[i].id)}
-                  disabled={!isSwapPhase && source !== 'faceUp'}
+                  disabled={currentPlayer.name.toLowerCase() === 'robot' || (!isSwapPhase && source !== 'faceUp')}
                   onClick={() => {
                     if (isSwapPhase) handleSwapClick('faceUp', currentPlayer.faceUp[i].id);
                     else if (source === 'faceUp') toggleSelect(currentPlayer.faceUp[i].id);
@@ -276,7 +328,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
               key={card.id}
               card={card}
               selected={isSwapPhase ? swapSource?.id === card.id : selectedCards.includes(card.id)}
-              disabled={!isSwapPhase && source !== 'hand'}
+              disabled={currentPlayer.name.toLowerCase() === 'robot' || (!isSwapPhase && source !== 'hand')}
               onClick={() => {
                 if (isSwapPhase) handleSwapClick('hand', card.id);
                 else toggleSelect(card.id);
@@ -292,6 +344,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={handleConfirmSwap}
+            disabled={currentPlayer.name.toLowerCase() === 'robot'}
             className="px-6 py-3 rounded-xl bg-gold text-white font-semibold glow-gold"
           >
             ✓ Klar med byten
@@ -302,6 +355,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={handlePlay}
+                disabled={currentPlayer.name.toLowerCase() === 'robot'}
                 className="px-5 py-3 rounded-xl bg-emerald-500 text-white font-semibold flex items-center gap-2"
               >
                 <ArrowUp size={16} /> Spela
@@ -311,6 +365,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={handlePickUp}
+                disabled={currentPlayer.name.toLowerCase() === 'robot'}
                 className="px-5 py-3 rounded-xl bg-destructive text-destructive-foreground font-semibold flex items-center gap-2"
               >
                 Ta upp högen
