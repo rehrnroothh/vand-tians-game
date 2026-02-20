@@ -27,6 +27,14 @@ const generateCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
+const validatePlayerName = (name: string): string => {
+  const trimmed = name.trim().substring(0, 50);
+  if (trimmed.length === 0) {
+    throw new Error('Player name cannot be empty');
+  }
+  return trimmed;
+};
+
 export const getOrCreateSessionId = (): string => {
   let id = localStorage.getItem('vt_session_id');
   if (!id) {
@@ -37,6 +45,7 @@ export const getOrCreateSessionId = (): string => {
 };
 
 export const createRoom = async (hostName: string): Promise<{ room: Room; player: RoomPlayer } | null> => {
+  const validName = validatePlayerName(hostName);
   const sessionId = getOrCreateSessionId();
   const code = generateCode();
 
@@ -53,7 +62,7 @@ export const createRoom = async (hostName: string): Promise<{ room: Room; player
 
   const { data: player, error: playerErr } = await supabase
     .from('room_players')
-    .insert({ room_id: room.id, session_id: sessionId, name: hostName, is_ready: false, player_index: 0 })
+    .insert({ room_id: room.id, session_id: sessionId, name: validName, is_ready: false, player_index: 0 })
     .select()
     .single();
 
@@ -66,6 +75,7 @@ export const createRoom = async (hostName: string): Promise<{ room: Room; player
 };
 
 export const joinRoom = async (code: string, playerName: string): Promise<{ room: Room; player: RoomPlayer } | null> => {
+  const validName = validatePlayerName(playerName);
   const sessionId = getOrCreateSessionId();
 
   const { data: room, error: roomErr } = await supabase
@@ -98,7 +108,7 @@ export const joinRoom = async (code: string, playerName: string): Promise<{ room
 
   const { data: player, error: playerErr } = await supabase
     .from('room_players')
-    .insert({ room_id: room.id, session_id: sessionId, name: playerName, is_ready: false, player_index: playerIndex })
+    .insert({ room_id: room.id, session_id: sessionId, name: validName, is_ready: false, player_index: playerIndex })
     .select()
     .single();
 

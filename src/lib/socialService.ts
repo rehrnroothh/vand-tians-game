@@ -102,10 +102,13 @@ export async function sendFriendRequest(addresseeUserId: string) {
 }
 
 export async function respondToFriendRequest(friendshipId: string, accept: boolean) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
   const { error } = await supabase
     .from('friendships')
     .update({ status: accept ? 'accepted' : 'declined' })
-    .eq('id', friendshipId);
+    .eq('id', friendshipId)
+    .eq('addressee_id', user.id);
   if (error) throw error;
 }
 
