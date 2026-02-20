@@ -23,23 +23,31 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
   // Keep ref in sync for subscription callback
   useEffect(() => { stateRef.current = state; }, [state]);
 
-  useEffect(() => {
-    // Initial fetch
-    supabase.from('rooms').select('game_state').eq('id', roomId).single().then(({ data }) => {
-      if (data?.game_state) setState(data.game_state as unknown as GameState);
-    });
+  const fetchFilteredState = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-game-state', {
+        body: { room_id: roomId, session_id: sessionId },
+      });
+      if (!error && data) setState(data as GameState);
+    } catch (e) {
+      console.error('Failed to fetch game state:', e);
+    }
+  };
 
-    // Realtime updates
+  useEffect(() => {
+    // Initial fetch via edge function (filtered)
+    fetchFilteredState();
+
+    // Realtime: use only as notification to re-fetch (don't trust payload data)
     const channel = supabase
       .channel(`game-${roomId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, (payload) => {
-        const gs = payload.new.game_state as unknown as GameState;
-        if (gs) setState(gs);
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, () => {
+        fetchFilteredState();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [roomId]);
+  }, [roomId, sessionId]);
 
   // Presence tracking for leave detection
   useEffect(() => {
