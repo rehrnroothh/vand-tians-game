@@ -23,10 +23,36 @@ interface GameBoardProps {
   onReset: () => void;
 }
 
+const ORJAN_LOSING_LINES = [
+  'Örjan Lax: “Jaha. Kul. Då var det alltså riggat.”',
+  '“Det där räknas inte. Reglerna är ju helt fel.”',
+  '“Vem kom på det här spelet ens? Det är ju trasigt.”',
+  '“Snyggt. Man ska alltså vinna på tur nu. Fantastiskt.”',
+  '“Nej, stopp. Du flyttade fel. Jag såg det.”',
+  '“Om du ska fuska kan vi lika gärna lägga ner.”',
+  '“Okej, grattis då. Men det här säger mer om spelet än om mig.”',
+  '“Jag förlorade inte. Jag avbröt.”',
+  '“Det där är inte ett ‘spel’, det är ett irritationsmoment.”',
+];
+
+const ORJAN_WINNING_LINES = [
+  '“Det var inte ens svårt. Det svåra var att stå ut med processen.”',
+  '“Okej, nu kan vi sluta. Jag har bevisat poängen.”',
+  '“Grattis till din insats. Du var… närvarande.”',
+  '“Du märker skillnaden när man tänker innan man gör.”',
+  '“Snyggt. Och då menar jag: av mig.”',
+  '“Alltså, jag säger inte att du var helt usel… men du gjorde ditt bästa för att bevisa motsatsen.”',
+  '“Det är nästan rörande hur du försökte. Nästan.”',
+  '“Ja. Det här är exakt varför jag inte gillar spel. Man tvingas vinna åt andra.”',
+  '“Nu kommer du säga ‘tur’. Absolut. Allt som inte är din framgång är ‘tur’.”',
+  '“Bra. Då kan vi gå vidare till något vuxet.”',
+];
+
 const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
   const [state, setState] = useState<GameState>(initialState);
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [swapSource, setSwapSource] = useState<{ type: 'hand' | 'faceUp'; id: string } | null>(null);
+  const [finalLine, setFinalLine] = useState('');
 
   const isRobotPlayer = (name: string) => name.toLowerCase().startsWith('örjan');
 
@@ -39,6 +65,11 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
 
   const isSwapPhase = state.phase === 'swap';
   const isFinished = state.phase === 'finished';
+  const winnerIndex = state.winner;
+  const winner = winnerIndex !== null ? state.players[winnerIndex] : currentPlayer;
+  const orjanIndex = state.players.findIndex((player) => isRobotPlayer(player.name));
+  const orjanWon = winnerIndex !== null && winnerIndex === orjanIndex;
+  const humanWonAgainstOrjan = winnerIndex !== null && winnerIndex === myPlayerIndex && orjanIndex !== -1;
   const mustCoverTwoNow =
     state.mustCoverTwo && state.mustCoverTwoPlayerIndex === state.currentPlayerIndex;
 
@@ -223,6 +254,22 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
 
     return () => clearTimeout(timer);
   }, [currentPlayer, isFinished, state]);
+
+  useEffect(() => {
+    if (!isFinished) {
+      setFinalLine('');
+      return;
+    }
+
+    const lines = orjanWon ? ORJAN_WINNING_LINES : humanWonAgainstOrjan ? ORJAN_LOSING_LINES : [];
+    if (lines.length === 0) {
+      setFinalLine('');
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * lines.length);
+    setFinalLine(lines[randomIndex]);
+  }, [humanWonAgainstOrjan, isFinished, orjanWon]);
 
   return (
     <div className="flex flex-col min-h-screen p-4 pt-14 pb-6 relative">
@@ -417,11 +464,19 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center"
+            className="text-center max-w-lg"
           >
             <span className="text-6xl mb-4 block">🏆</span>
-            <h2 className="text-3xl font-bold text-gold mb-2">{currentPlayer.name} vinner!</h2>
-            <p className="text-muted-foreground mb-8">Grattis!</p>
+            <h2 className="text-3xl font-bold text-gold mb-2">{winner.name} vinner!</h2>
+            <p className="text-muted-foreground mb-4">Grattis!</p>
+            {(orjanWon || humanWonAgainstOrjan) && (
+              <img
+                src={orjanWon ? '/orjan-winning.svg' : '/orjan-losing.svg'}
+                alt={orjanWon ? 'Örjan när han vinner' : 'Örjan när han förlorar'}
+                className="mx-auto mb-4 w-full max-w-sm rounded-xl border border-border/50"
+              />
+            )}
+            {finalLine && <p className="text-sm italic text-muted-foreground mb-8">{finalLine}</p>}
             <div className="flex gap-3 justify-center">
               <button onClick={handleRestart} className="px-6 py-3 rounded-xl bg-gold text-primary-foreground font-semibold glow-gold">Spela igen</button>
               <button onClick={onReset} className="px-6 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold">Byt spelare</button>
