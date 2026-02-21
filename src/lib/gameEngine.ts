@@ -312,10 +312,16 @@ export const playCards = (
 
   // If this play is the follow-up after a 2 that the same player previously played,
   // clear the "must cover 2" requirement and continue as a normal turn.
-  if (newState.mustCoverTwo && newState.mustCoverTwoPlayerIndex === newState.currentPlayerIndex) {
+  const wasCoveringTwo = newState.mustCoverTwo &&
+    newState.mustCoverTwoPlayerIndex === newState.currentPlayerIndex;
+  if (wasCoveringTwo) {
+
     newState.mustCoverTwo = false;
     newState.mustCoverTwoPlayerIndex = null;
-  } else if (playedTwo && playerHasNoCards) {
+  }
+
+  if (playedTwo && playerHasNoCards) {
+
     // Special rule: if the player only had a 2 left, they don't win.
     // They draw new cards from the talong and must immediately play again.
     if (source === 'hand') {
