@@ -67,7 +67,7 @@ const LobbyScreen = ({ onJoined, onStartSinglePlayer }: LobbyScreenProps) => {
             <button onClick={() => setMode('join')} className="w-full py-4 rounded-xl bg-secondary text-secondary-foreground font-semibold text-lg flex items-center justify-center gap-2">
               <LogIn size={20} /> Gå med i rum
             </button>
-            <button onClick={onStartSinglePlayer} className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg flex items-center justify-center gap-2">              Single-player 
+            <button onClick={onStartSinglePlayer} className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg flex items-center justify-center gap-2">              Kör mot Örjan Lax 24/7 
             </button>
           </div>
         )}

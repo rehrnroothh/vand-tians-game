@@ -7,7 +7,7 @@ const card = (id: string, value: number): Card => ({ id, value, suit: 'spades' }
 const createState = (overrides?: Partial<GameState>): GameState => ({
   players: [
     {
-      name: 'Robot',
+      name: 'Örjan',
       hand: [card('h-3', 3), card('h-2', 2), card('h-10', 10)],
       faceUp: [card('u-5', 5), card('u-7', 7), card('u-8', 8)],
       faceDown: [card('d-9', 9)],

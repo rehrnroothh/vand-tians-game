@@ -66,7 +66,7 @@ const Index = () => {
   const handleSinglePlayerStart = () => {
     const playerName = 'Du';
 
-    const game = dealGame([playerName, 'Robot']);
+    const game = dealGame([playerName, 'Örjan']);
     setSinglePlayerState(game);
     setScreen('single');
   };

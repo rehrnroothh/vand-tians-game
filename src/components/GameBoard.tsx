@@ -29,7 +29,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
   const [swapSource, setSwapSource] = useState<{ type: 'hand' | 'faceUp'; id: string } | null>(null);
 
   const currentPlayer = state.players[state.currentPlayerIndex];
-  const humanPlayerIndex = state.players.findIndex((player) => player.name.toLowerCase() !== 'robot');
+  const humanPlayerIndex = state.players.findIndex((player) => player.name.toLowerCase() !== 'örjan lax');
   const myPlayerIndex = humanPlayerIndex === -1 ? 0 : humanPlayerIndex;
   const myPlayer = state.players[myPlayerIndex];
   const source = getPlaySource(myPlayer);
@@ -188,7 +188,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
   
   
   useEffect(() => {
-    const isRobotTurn = currentPlayer.name.toLowerCase() === 'robot';
+    const isRobotTurn = currentPlayer.name.toLowerCase() === 'örjan lax';
     if (!isRobotTurn || isFinished) return;
 
     const timer = setTimeout(() => {
@@ -231,7 +231,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
       {/* Header */}
       <div className="fixed top-0 left-0 right-0 p-3 flex items-center justify-between z-20 bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="text-sm text-muted-foreground">
-          📦 {state.drawPile.length} i talong
+          {state.drawPile.length} i talong
         </div>
         <motion.div key={state.currentPlayerIndex} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm font-semibold text-gold">
           {currentPlayer.name}s tur
