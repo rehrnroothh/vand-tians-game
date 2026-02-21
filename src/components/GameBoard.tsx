@@ -35,6 +35,17 @@ const ORJAN_LOSING_LINES = [
   '“Det där är inte ett ‘spel’, det är ett irritationsmoment.”',
 ];
 
+
+const ORJAN_WIN_IMAGE = {
+  primary: '/orjan-winning.jpg',
+  fallback: '/orjan-winning.svg',
+};
+
+const ORJAN_LOSS_IMAGE = {
+  primary: '/orjan-losing.jpg',
+  fallback: '/orjan-losing.svg',
+};
+
 const ORJAN_WINNING_LINES = [
   '“Det var inte ens svårt. Det svåra var att stå ut med processen.”',
   '“Okej, nu kan vi sluta. Jag har bevisat poängen.”',
@@ -53,6 +64,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [swapSource, setSwapSource] = useState<{ type: 'hand' | 'faceUp'; id: string } | null>(null);
   const [finalLine, setFinalLine] = useState('');
+  const [resultImageSrc, setResultImageSrc] = useState('');
 
   const isRobotPlayer = (name: string) => name.toLowerCase().startsWith('örjan');
 
@@ -258,17 +270,20 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
   useEffect(() => {
     if (!isFinished) {
       setFinalLine('');
+      setResultImageSrc('');
       return;
     }
 
     const lines = orjanWon ? ORJAN_WINNING_LINES : humanWonAgainstOrjan ? ORJAN_LOSING_LINES : [];
     if (lines.length === 0) {
       setFinalLine('');
+      setResultImageSrc('');
       return;
     }
 
     const randomIndex = Math.floor(Math.random() * lines.length);
     setFinalLine(lines[randomIndex]);
+    setResultImageSrc(orjanWon ? ORJAN_WIN_IMAGE.primary : ORJAN_LOSS_IMAGE.primary);
   }, [humanWonAgainstOrjan, isFinished, orjanWon]);
 
   return (
@@ -471,9 +486,14 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
             <p className="text-muted-foreground mb-4">Grattis!</p>
             {(orjanWon || humanWonAgainstOrjan) && (
               <img
-                src={orjanWon ? '/orjan-winning.svg' : '/orjan-losing.svg'}
+                src={resultImageSrc}
                 alt={orjanWon ? 'Örjan när han vinner' : 'Örjan när han förlorar'}
                 className="mx-auto mb-4 w-full max-w-sm rounded-xl border border-border/50"
+                onError={(event) => {
+                  const fallbackSrc = orjanWon ? ORJAN_WIN_IMAGE.fallback : ORJAN_LOSS_IMAGE.fallback;
+                  if (event.currentTarget.src.endsWith(fallbackSrc)) return;
+                  setResultImageSrc(fallbackSrc);
+                }}
               />
             )}
             {finalLine && <p className="text-sm italic text-muted-foreground mb-8">{finalLine}</p>}
