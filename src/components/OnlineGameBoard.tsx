@@ -176,26 +176,14 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     };
   
 
-  if (state.phase === 'finished') {
-    const winner = state.players[state.winner!];
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-6">
-        <div className="gradient-radial fixed inset-0 pointer-events-none" />
-        <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="relative z-10 text-center">
-          <span className="text-6xl mb-4 block">🏆</span>
-          <h2 className="text-3xl font-bold text-gold mb-2">{winner?.name} vinner!</h2>
-          <p className="text-muted-foreground mb-8">
-            {state.winner === playerIndex ? 'Bra jobb förfään! 🎉' : 'Det sög ju..'}
-          </p>
-          <button onClick={onReset} className="px-6 py-3 rounded-xl bg-gold text-primary-foreground font-semibold glow-gold">Tillbaka till lobby</button>
-        </motion.div>
-      </div>
-    );
-  }
+  const isFinished = state.phase === 'finished';
+  const winner = isFinished ? state.players[state.winner!] : null;
 
   return (
     <div className="flex flex-col min-h-screen p-4 pt-14 pb-6 relative">
       <div className="gradient-radial fixed inset-0 pointer-events-none" />
+
+      <div className={isFinished ? 'opacity-35 pointer-events-none transition-opacity' : 'transition-opacity'}>
 
       {/* Header */}
       <div className="fixed top-0 left-0 right-0 p-3 flex items-center justify-between z-20 bg-background/80 backdrop-blur-sm border-b border-border">
@@ -350,6 +338,26 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
           <p className="text-muted-foreground text-sm">Väntar på {state.players[state.currentPlayerIndex]?.name}...</p>
         )}
       </div>
+      </div>
+
+      {isFinished && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center"
+          >
+            <span className="text-6xl mb-4 block">🏆</span>
+            <h2 className="text-3xl font-bold text-gold mb-2">{winner?.name} vinner!</h2>
+            <p className="text-muted-foreground mb-8">
+              {state.winner === playerIndex ? 'Bra jobb förfään! 🎉' : 'Det sög ju..'}
+            </p>
+            <button onClick={onReset} className="px-6 py-3 rounded-xl bg-gold text-primary-foreground font-semibold glow-gold">
+              Tillbaka till lobby
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
