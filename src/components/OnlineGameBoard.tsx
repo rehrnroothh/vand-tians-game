@@ -16,7 +16,10 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
   const [state, setState] = useState<GameState | null>(null);
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [swapSource, setSwapSource] = useState<{ type: 'hand' | 'faceUp'; id: string } | null>(null);
+  const [disconnectNotice, setDisconnectNotice] = useState<string | null>(null);
   const stateRef = useRef<GameState | null>(null);
+  const roomPlayerCountRef = useRef<number | null>(null);
+  const disconnectNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep ref in sync for subscription callback
   useEffect(() => { stateRef.current = state; }, [state]);
@@ -37,6 +40,49 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
+  }, [roomId]);
+
+  useEffect(() => {
+    let active = true;
+
+    const refreshPlayerCount = async () => {
+      const { count, error } = await supabase
+        .from('room_players')
+        .select('session_id', { count: 'exact', head: true })
+        .eq('room_id', roomId);
+
+      if (!active || error || count === null) return;
+
+      const previousCount = roomPlayerCountRef.current;
+      roomPlayerCountRef.current = count;
+
+      if (previousCount !== null && count < previousCount) {
+        setDisconnectNotice('En spelare lämnade rummet.');
+        if (disconnectNoticeTimeoutRef.current) {
+          clearTimeout(disconnectNoticeTimeoutRef.current);
+        }
+        disconnectNoticeTimeoutRef.current = setTimeout(() => {
+          setDisconnectNotice(null);
+        }, 3000);
+      }
+    };
+
+    void refreshPlayerCount();
+
+    const playersChannel = supabase
+      .channel(`room-${roomId}-players-live`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_players', filter: `room_id=eq.${roomId}` }, () => {
+        void refreshPlayerCount();
+      })
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(playersChannel);
+      if (disconnectNoticeTimeoutRef.current) {
+        clearTimeout(disconnectNoticeTimeoutRef.current);
+      }
+    };
   }, [roomId]);
 
   if (!state) return (
@@ -188,13 +234,21 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       {/* Header */}
       <div className="fixed top-0 left-0 right-0 p-3 flex items-center justify-between z-20 bg-background/80 backdrop-blur-sm border-b border-border">
         <div className="text-sm text-muted-foreground"> {state.drawPile.length} kvar</div>
-        <AnimatePresence mode="wait">
-          <motion.div key={state.currentPlayerIndex} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className={`text-sm font-semibold ${isMyTurn ? 'text-white' : 'text-muted-foreground'}`}>
-            {isMyTurn ? ' Din tur din Sate!'  : `${state.players[state.currentPlayerIndex]?.name}s tur...`}
-          </motion.div>
-        </AnimatePresence>
         <button onClick={onReset} className="p-1.5 rounded-lg bg-secondary text-muted-foreground"><RotateCcw size={16} /></button>
       </div>
+
+      <AnimatePresence>
+        {disconnectNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="mx-auto mb-2 mt-1 w-fit rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-200"
+          >
+            {disconnectNotice}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Other players */}
       <div className="flex gap-2 justify-center mb-2 flex-wrap">

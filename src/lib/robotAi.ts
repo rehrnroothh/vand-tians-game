@@ -24,6 +24,22 @@ const endgameScore = (card: Card): number => {
   return card.value;
 };
 
+const compareCardsForPromotion = (a: Card, b: Card): number => {
+  const scoreDiff = endgameScore(b) - endgameScore(a);
+  if (scoreDiff !== 0) return scoreDiff;
+  const valueDiff = b.value - a.value;
+  if (valueDiff !== 0) return valueDiff;
+  return a.id.localeCompare(b.id);
+};
+
+const compareCardsForReplacement = (a: Card, b: Card): number => {
+  const scoreDiff = endgameScore(a) - endgameScore(b);
+  if (scoreDiff !== 0) return scoreDiff;
+  const valueDiff = a.value - b.value;
+  if (valueDiff !== 0) return valueDiff;
+  return a.id.localeCompare(b.id);
+};
+
 const wouldClearByFourOfAKind = (value: number, discardPile: Card[]): boolean => {
   if (discardPile.length < 3) return false;
   const topThree = discardPile.slice(-3);
@@ -32,24 +48,15 @@ const wouldClearByFourOfAKind = (value: number, discardPile: Card[]): boolean =>
 
 export const chooseRobotSwapDecision = (state: GameState, playerIndex: number): RobotSwapDecision => {
   const player = state.players[playerIndex];
-  const pool = [...player.hand, ...player.faceUp];
-
-  const desiredFaceUpIds = new Set(
-    [...pool]
-      .sort((a, b) => endgameScore(b) - endgameScore(a))
-      .slice(0, player.faceUp.length)
-      .map((card) => card.id),
-  );
-
-  const faceUpToReplace = player.faceUp
-    .filter((card) => !desiredFaceUpIds.has(card.id))
-    .sort((a, b) => endgameScore(a) - endgameScore(b))[0];
-
-  const handToPromote = player.hand
-    .filter((card) => desiredFaceUpIds.has(card.id))
-    .sort((a, b) => endgameScore(b) - endgameScore(a))[0];
+  const handToPromote = [...player.hand].sort(compareCardsForPromotion)[0];
+  const faceUpToReplace = [...player.faceUp].sort(compareCardsForReplacement)[0];
 
   if (!faceUpToReplace || !handToPromote) {
+    return { type: 'confirm' };
+  }
+
+  // Only swap on strict improvement to avoid looping when equal-value duplicates exist.
+  if (endgameScore(handToPromote) <= endgameScore(faceUpToReplace)) {
     return { type: 'confirm' };
   }
 

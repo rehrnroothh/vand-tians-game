@@ -294,9 +294,6 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
         <div className="text-sm text-muted-foreground">
           {state.drawPile.length} i talong
         </div>
-        <motion.div key={state.currentPlayerIndex} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm font-semibold text-gold">
-          {currentPlayer.name}s tur
-        </motion.div>
         <button onClick={onReset} className="p-1.5 rounded-lg bg-secondary text-muted-foreground">
           <RotateCcw size={16} />
         </button>

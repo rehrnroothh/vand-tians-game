@@ -326,15 +326,9 @@ export const playCards = (
   }
 
   if (playedTwo && playerHasNoCards) {
-
-    // Special rule: if the player only had a 2 left, they don't win.
-    // They draw new cards from the talong and must immediately play again.
-    if (source === 'hand') {
-      refillHand(player, newState.drawPile);
-    }
-    newState.mustCoverTwo = true;
-    newState.mustCoverTwoPlayerIndex = newState.currentPlayerIndex;
-    newState.message = `${player.name} spelade sin sista 2️⃣ — fick nya kort och måste spela igen.`;
+    newState.winner = newState.currentPlayerIndex;
+    newState.phase = 'finished';
+    newState.message = `🎉 ${player.name} vinner!`;
     return newState;
   } else if (playedTwo) {
     // A 2 was just played (without clearing). Same player must immediately play again.
@@ -403,7 +397,7 @@ export const drawAndTryFromTalong = (state: GameState): GameState => {
     newState.discardPile = [];
     newState.lastPlayedCards = [];
     // Turn does NOT pass – the player who picked up starts playing
-    newState.message = `${player.name} drog ett ${cardLabel(drawn.value)} men kunde inte spela — tog upp högen och spelar vidare.`;
+    newState.message = `${player.name} drog en ${cardLabel(drawn.value)} men kunde inte spela — tog upp högen och spelar vidare.`;
     return newState;
   }
 
