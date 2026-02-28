@@ -1,4 +1,4 @@
-import { Card, GameState, canPlayCard, getPlaySource } from './gameEngine';
+import { Card, GameState, canPlayCard, getFaceUpCards, getFaceUpTopCards, getPlaySource } from './gameEngine';
 
 interface SwapMove {
   type: 'swap';
@@ -49,10 +49,20 @@ const wouldClearByFourOfAKind = (value: number, discardPile: Card[]): boolean =>
 export const chooseRobotSwapDecision = (state: GameState, playerIndex: number): RobotSwapDecision => {
   const player = state.players[playerIndex];
   const handToPromote = [...player.hand].sort(compareCardsForPromotion)[0];
-  const faceUpToReplace = [...player.faceUp].sort(compareCardsForReplacement)[0];
+  const faceUpTopCards = getFaceUpTopCards(player).filter((card): card is Card => !!card);
+  const faceUpToReplace = [...faceUpTopCards].sort(compareCardsForReplacement)[0];
 
   if (!faceUpToReplace || !handToPromote) {
     return { type: 'confirm' };
+  }
+
+  const matchingFaceUpCard = faceUpTopCards.find((card) => card.value === handToPromote.value);
+  if (matchingFaceUpCard) {
+    return {
+      type: 'swap',
+      handCardId: handToPromote.id,
+      faceUpCardId: matchingFaceUpCard.id,
+    };
   }
 
   // Only swap on strict improvement to avoid looping when equal-value duplicates exist.
@@ -76,7 +86,7 @@ export const chooseRobotPlayDecision = (state: GameState, playerIndex: number): 
     return blindCard ? { type: 'faceDown', cardId: blindCard.id } : { type: 'pickup' };
   }
 
-  const availableCards = source === 'hand' ? player.hand : player.faceUp;
+  const availableCards = source === 'hand' ? player.hand : getFaceUpCards(player);
   const playableCards = availableCards.filter((card) => canPlayCard(card, state.discardPile));
 
   if (playableCards.length === 0) {

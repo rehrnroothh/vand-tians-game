@@ -7,7 +7,7 @@ export interface Card {
 export interface Player {
   name: string;
   hand: Card[];
-  faceUp: Card[];   // 3 face-up cards on table
+  faceUp: Card[][]; // 3 face-up stacks on table
   faceDown: Card[]; // 3 face-down cards on table
 }
 
@@ -47,6 +47,58 @@ export const cardLabel = (value: number): string => {
 
 export const cardSortValue = (card: Card): number => card.value;
 
+const FACE_UP_SLOT_COUNT = 3;
+
+const createFaceUpSlots = (): Card[][] =>
+  Array.from({ length: FACE_UP_SLOT_COUNT }, () => []);
+
+const isCard = (value: unknown): value is Card =>
+  typeof value === 'object' &&
+  value !== null &&
+  'id' in value &&
+  'value' in value &&
+  'suit' in value;
+
+const normalizeFaceUpStacks = (faceUp: Card[][] | Card[] | undefined): Card[][] => {
+  const stacks = createFaceUpSlots();
+
+  if (!Array.isArray(faceUp) || faceUp.length === 0) {
+    return stacks;
+  }
+
+  if (Array.isArray(faceUp[0])) {
+    const nestedStacks = faceUp as Card[][];
+    for (let i = 0; i < Math.min(nestedStacks.length, FACE_UP_SLOT_COUNT); i++) {
+      const stack = nestedStacks[i];
+      if (!Array.isArray(stack)) continue;
+      stacks[i] = stack.filter(isCard);
+    }
+    return stacks;
+  }
+
+  const flatCards = (faceUp as Card[]).filter(isCard);
+  for (let i = 0; i < Math.min(flatCards.length, FACE_UP_SLOT_COUNT); i++) {
+    stacks[i] = [flatCards[i]];
+  }
+
+  return stacks;
+};
+
+export const normalizeGameState = (state: GameState): GameState => {
+  const newState = structuredClone(state);
+  newState.players = newState.players.map((player) => ({
+    ...player,
+    faceUp: normalizeFaceUpStacks(player.faceUp as unknown as Card[][] | Card[]),
+  }));
+  return newState;
+};
+
+export const getFaceUpCards = (player: Player): Card[] =>
+  normalizeFaceUpStacks(player.faceUp as unknown as Card[][] | Card[]).flat();
+
+export const getFaceUpTopCards = (player: Player): Array<Card | undefined> =>
+  normalizeFaceUpStacks(player.faceUp as unknown as Card[][] | Card[]).map((stack) => stack[stack.length - 1]);
+
 
 const turnMessageForPlayer = (name: string, suffix = '.'): string =>
   name.toLowerCase() === 'du' ? `Din tur${suffix}` : `${name}s tur${suffix}`;
@@ -74,7 +126,7 @@ export const dealGame = (playerNames: string[]): GameState => {
   const players: Player[] = playerNames.map((name) => ({
     name,
     hand: [],
-    faceUp: [],
+    faceUp: createFaceUpSlots(),
     faceDown: [],
   }));
 
@@ -87,7 +139,7 @@ export const dealGame = (playerNames: string[]): GameState => {
   // Deal 3 face-up per player
   for (let i = 0; i < 3; i++) {
     for (const p of players) {
-      p.faceUp.push(deck.pop()!);
+      p.faceUp[i].push(deck.pop()!);
     }
   }
   // Deal 3 hand cards per player
@@ -163,21 +215,22 @@ export const getPlayableCards = (player: Player, discardPile: Card[]): Card[] =>
   if (player.hand.length > 0) {
     return player.hand;
   }
-  if (player.faceUp.length > 0) {
-    return player.faceUp;
+  const faceUpCards = getFaceUpCards(player);
+  if (faceUpCards.length > 0) {
+    return faceUpCards;
   }
   return player.faceDown; // blind play
 };
 
 export const getPlaySource = (player: Player): 'hand' | 'faceUp' | 'faceDown' => {
   if (player.hand.length > 0) return 'hand';
-  if (player.faceUp.length > 0) return 'faceUp';
+  if (getFaceUpCards(player).length > 0) return 'faceUp';
   return 'faceDown';
 };
 
 // Check if a player has won
 const hasWon = (player: Player): boolean => {
-  return player.hand.length === 0 && player.faceUp.length === 0 && player.faceDown.length === 0;
+  return player.hand.length === 0 && getFaceUpCards(player).length === 0 && player.faceDown.length === 0;
 };
 
 // Advance to next player who hasn't won
@@ -198,22 +251,33 @@ export const swapCards = (
   handCardId: string,
   faceUpCardId: string
 ): GameState => {
-  const newState = structuredClone(state);
+  const newState = normalizeGameState(state);
   const player = newState.players[playerIndex];
   
   const handIdx = player.hand.findIndex(c => c.id === handCardId);
-  const faceUpIdx = player.faceUp.findIndex(c => c.id === faceUpCardId);
+  const faceUpIdx = player.faceUp.findIndex(stack => stack.some(c => c.id === faceUpCardId));
   
   if (handIdx === -1 || faceUpIdx === -1) return state;
-  
-  [player.hand[handIdx], player.faceUp[faceUpIdx]] = [player.faceUp[faceUpIdx], player.hand[handIdx]];
+
+  const handCard = player.hand[handIdx];
+  const faceUpStack = player.faceUp[faceUpIdx];
+  const topFaceUpCard = faceUpStack[faceUpStack.length - 1];
+
+  if (!topFaceUpCard) return state;
+
+  if (handCard.value === topFaceUpCard.value) {
+    faceUpStack.push(...player.hand.splice(handIdx, 1));
+  } else {
+    [player.hand[handIdx], faceUpStack[faceUpStack.length - 1]] = [topFaceUpCard, handCard];
+  }
+
   player.hand.sort((a, b) => a.value - b.value);
   
   return newState;
 };
 
 export const confirmSwap = (state: GameState, playerIndex: number): GameState => {
-  const newState = structuredClone(state);
+  const newState = normalizeGameState(state);
   newState.swapConfirmed[playerIndex] = true;
   
   // Check if all confirmed
@@ -240,7 +304,7 @@ export const playCards = (
 ): GameState => {
   if (cardIds.length === 0) return state;
   
-  const newState = structuredClone(state);
+  const newState = normalizeGameState(state);
   const player = newState.players[newState.currentPlayerIndex];
   const source = getPlaySource(player);
   
@@ -266,8 +330,10 @@ export const playCards = (
     
     cards = [card];
   } else {
-    const sourceArr = source === 'hand' ? player.hand : player.faceUp;
+    const sourceArr = source === 'hand' ? player.hand : getFaceUpCards(player);
     cards = cardIds.map(id => sourceArr.find(c => c.id === id)!).filter(Boolean);
+
+    if (cards.length !== cardIds.length) return state;
     
     // Validate: all same value
     if (!cards.every(c => c.value === cards[0].value)) return state;
@@ -276,8 +342,19 @@ export const playCards = (
     
     // Remove from source
     for (const card of cards) {
-      const idx = (source === 'hand' ? player.hand : player.faceUp).findIndex(c => c.id === card.id);
-      if (idx !== -1) (source === 'hand' ? player.hand : player.faceUp).splice(idx, 1);
+      if (source === 'hand') {
+        const idx = player.hand.findIndex(c => c.id === card.id);
+        if (idx !== -1) player.hand.splice(idx, 1);
+        continue;
+      }
+
+      for (const stack of player.faceUp) {
+        const idx = stack.findIndex(c => c.id === card.id);
+        if (idx !== -1) {
+          stack.splice(idx, 1);
+          break;
+        }
+      }
     }
   }
 
@@ -350,7 +427,7 @@ export const playCards = (
   const canContinueFromTableWithMatch =
     source === 'hand' &&
     player.hand.length === 0 &&
-    player.faceUp.some(faceUpCard => faceUpCard.value === cards[0].value);
+    getFaceUpCards(player).some(faceUpCard => faceUpCard.value === cards[0].value);
   
   // Check win
   if (hasWon(player)) {
@@ -375,7 +452,7 @@ export const playCards = (
 // Draw one card from the talong and try to play it.
 // Only allowed when the current player has no playable cards in hand/faceUp and is not on faceDown.
 export const drawAndTryFromTalong = (state: GameState): GameState => {
-  const newState = structuredClone(state);
+  const newState = normalizeGameState(state);
   const player = newState.players[newState.currentPlayerIndex];
   const source = getPlaySource(player);
 
@@ -393,7 +470,7 @@ export const drawAndTryFromTalong = (state: GameState): GameState => {
     return newState;
   }
 
-  const sourceCards = source === 'hand' ? player.hand : player.faceUp;
+  const sourceCards = source === 'hand' ? player.hand : getFaceUpCards(player);
   const hasPlayable = sourceCards.some(c => canPlayCard(c, newState.discardPile));
   if (hasPlayable) {
     newState.message = `${player.name}: Du har redan spelbara kort — spela dem istället för att chansa.`;
@@ -429,7 +506,7 @@ export const pickUpPile = (state: GameState): GameState => {
     };
   }
 
-  const newState = structuredClone(state);
+  const newState = normalizeGameState(state);
   const player = newState.players[newState.currentPlayerIndex];
   
   player.hand = [...player.hand, ...newState.discardPile];

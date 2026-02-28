@@ -74,7 +74,7 @@ const LobbyScreen = ({ onJoined, onStartSinglePlayer }: LobbyScreenProps) => {
               to="/spelregler"
               className="w-full rounded-xl border border-border bg-card/70 py-3 text-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              Läs spelregler
+              Spelregler
             </Link>
           </div>
         )}

@@ -1,7 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, GameState, getPlaySource, canPlayCard, playCards, pickUpPile, swapCards, confirmSwap, getPlayableCards, drawAndTryFromTalong } from '@/lib/gameEngine';import { updateGameState } from '@/lib/roomService';
+import {
+  Card,
+  GameState,
+  getPlaySource,
+  canPlayCard,
+  playCards,
+  pickUpPile,
+  swapCards,
+  confirmSwap,
+  drawAndTryFromTalong,
+  getFaceUpCards,
+  getFaceUpTopCards,
+  normalizeGameState,
+} from '@/lib/gameEngine';
+import { updateGameState } from '@/lib/roomService';
 import MiniCard from './MiniCard';
 import { ArrowUp, Hand, RotateCcw } from 'lucide-react';
 
@@ -27,7 +41,9 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
   useEffect(() => {
     // Initial fetch
     supabase.from('rooms').select('game_state').eq('id', roomId).single().then(({ data }) => {
-      if (data?.game_state) setState(data.game_state as unknown as GameState);
+      if (data?.game_state) {
+        setState(normalizeGameState(data.game_state as unknown as GameState));
+      }
     });
 
     // Realtime updates
@@ -35,7 +51,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       .channel(`game-${roomId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, (payload) => {
         const gs = payload.new.game_state as unknown as GameState;
-        if (gs) setState(gs);
+        if (gs) setState(normalizeGameState(gs));
       })
       .subscribe();
 
@@ -97,14 +113,23 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
   const isMyTurn = state.currentPlayerIndex === playerIndex;
   const isSwapPhase = state.phase === 'swap' && state.currentPlayerIndex === playerIndex;
   const me = state.players[playerIndex];
+  const meFaceUpCards = me ? getFaceUpCards(me) : [];
+  const meFaceUpTopCards = me ? getFaceUpTopCards(me) : [];
   const source = me ? getPlaySource(me) : 'hand';
   const topDiscard = state.discardPile.length > 0 ? state.discardPile[state.discardPile.length - 1] : null;
   const mustCoverTwoNow =
     state.mustCoverTwo && state.mustCoverTwoPlayerIndex === state.currentPlayerIndex;
 
   const applyAndSync = async (newState: GameState) => {
-    setState(newState);
-    await updateGameState(roomId, newState);
+    const normalizedState = normalizeGameState(newState);
+    setState(normalizedState);
+    await updateGameState(roomId, normalizedState);
+  };
+
+  const getFaceUpStackCardIds = (cardId: string) => {
+    if (!me) return [];
+    const stack = me.faceUp.find((currentStack) => currentStack.some((card) => card.id === cardId));
+    return stack ? stack.map((card) => card.id) : [];
   };
 
   const toggleSelect = (cardId: string) => {
@@ -113,18 +138,24 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       applyAndSync(playCards(state, [cardId]));
       return;
     }
-    if (selectedCards.includes(cardId)) {
-      setSelectedCards(selectedCards.filter(id => id !== cardId));
+
+    const nextCardIds = source === 'faceUp' ? getFaceUpStackCardIds(cardId) : [cardId];
+    const card = [...me.hand, ...meFaceUpCards, ...me.faceDown].find((currentCard) => currentCard.id === nextCardIds[0]);
+    if (!card) return;
+
+    const isAlreadySelected = nextCardIds.every((id) => selectedCards.includes(id));
+
+    if (isAlreadySelected) {
+      setSelectedCards(selectedCards.filter(id => !nextCardIds.includes(id)));
     } else {
       if (selectedCards.length > 0) {
-        const firstCard = [...me.hand, ...me.faceUp].find(c => c.id === selectedCards[0]);
-        const thisCard = [...me.hand, ...me.faceUp].find(c => c.id === cardId);
-        if (firstCard && thisCard && firstCard.value !== thisCard.value) {
-          setSelectedCards([cardId]);
+        const firstCard = [...me.hand, ...meFaceUpCards].find(c => c.id === selectedCards[0]);
+        if (firstCard && firstCard.value !== card.value) {
+          setSelectedCards(nextCardIds);
           return;
         }
       }
-      setSelectedCards([...selectedCards, cardId]);
+      setSelectedCards([...selectedCards.filter(id => !nextCardIds.includes(id)), ...nextCardIds]);
     }
   };
 
@@ -161,10 +192,10 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     await updateGameState(roomId, newState);
   };
 
-  const sourceCards = source === 'hand' ? me?.hand ?? [] : source === 'faceUp' ? me?.faceUp ?? [] : [];
+  const sourceCards = source === 'hand' ? me?.hand ?? [] : source === 'faceUp' ? meFaceUpCards : [];
   const hasPlayableCard = sourceCards.some(c => canPlayCard(c, state.discardPile));
   const canPlay = selectedCards.length > 0 && (() => {
-    const cards = selectedCards.map(id => [...(me?.hand ?? []), ...(me?.faceUp ?? [])].find(c => c.id === id)).filter(Boolean);
+    const cards = selectedCards.map(id => [...(me?.hand ?? []), ...meFaceUpCards].find(c => c.id === id)).filter(Boolean);
     return cards.length > 0 && canPlayCard(cards[0]!, state.discardPile);
   })();
   const canTryTalong =
@@ -183,7 +214,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
 
     const renderTableStack = (
       faceDownCard: Card | undefined,
-      faceUpCard: Card | undefined,
+      faceUpStack: Card[],
       options?: {
         allowFaceDownPlay?: boolean;
         allowFaceUpSelection?: boolean;
@@ -192,6 +223,8 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
         onFaceUpClick?: () => void;
       },
     ) => {
+      const faceUpCard = faceUpStack[faceUpStack.length - 1];
+      const stackCount = faceUpStack.length;
       const showFaceDown = !!faceDownCard;
       const showFaceUp = !!faceUpCard;
   
@@ -214,6 +247,9 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
           )}
           {showFaceUp && (
             <div className="absolute inset-0 z-10">
+              {stackCount > 1 && (
+                <div className="absolute inset-x-1 top-1 bottom-0 rounded-lg border border-border/30 bg-card/40" />
+              )}
               <MiniCard
                 card={faceUpCard}
                 small
@@ -221,6 +257,11 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
                 disabled={!options?.allowFaceUpSelection}
                 onClick={options?.onFaceUpClick}
               />
+              {stackCount > 1 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {stackCount}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -260,7 +301,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       <div className="flex gap-2 justify-center mb-2 flex-wrap">
         {state.players.map((p, i) => {
           if (i === playerIndex) return null;
-          const total = p.hand.length + p.faceUp.length + p.faceDown.length;
+          const total = p.hand.length + getFaceUpCards(p).length + p.faceDown.length;
           return (
             <div key={i} className={`bg-card rounded-lg px-3 py-1.5 text-xs border ${i === state.currentPlayerIndex ? 'border-primary text-gold' : 'border-border text-muted-foreground'}`}>
               {p.name}: {total} kort
@@ -330,22 +371,26 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
         <div className="mb-4">
           <p className="text-xs text-muted-foreground mb-2 text-center uppercase tracking-wider">Bordskort</p>
           <div className="flex justify-center gap-3">
-            {[0, 1, 2].map(i => (
-              <div key={i}>
-              {renderTableStack(me.faceDown[i], me.faceUp[i], {
-                allowFaceDownPlay: isMyTurn && source === 'faceDown',
-                allowFaceUpSelection: isMyTurn && (isSwapPhase || source === 'faceUp'),
-                faceUpSelected: me.faceUp[i] ? (isSwapPhase ? swapSource?.id === me.faceUp[i].id : selectedCards.includes(me.faceUp[i].id)) : false,
-                onFaceDownClick: () => isMyTurn && source === 'faceDown' && me.faceDown[i] && toggleSelect(me.faceDown[i].id),
-                onFaceUpClick: () => {
-                  if (!me.faceUp[i]) return;
-                  if (isSwapPhase) handleSwapClick('faceUp', me.faceUp[i].id);
-                  else if (source === 'faceUp' && isMyTurn) toggleSelect(me.faceUp[i].id);
-                },
-              })}
-
-              </div>
-            ))}
+            {[0, 1, 2].map(i => {
+              const topFaceUpCard = meFaceUpTopCards[i];
+              return (
+                <div key={i}>
+                  {renderTableStack(me.faceDown[i], me.faceUp[i], {
+                    allowFaceDownPlay: isMyTurn && source === 'faceDown',
+                    allowFaceUpSelection: isMyTurn && (isSwapPhase || source === 'faceUp'),
+                    faceUpSelected: topFaceUpCard
+                      ? (isSwapPhase ? swapSource?.id === topFaceUpCard.id : selectedCards.includes(topFaceUpCard.id))
+                      : false,
+                    onFaceDownClick: () => isMyTurn && source === 'faceDown' && me.faceDown[i] && toggleSelect(me.faceDown[i].id),
+                    onFaceUpClick: () => {
+                      if (!topFaceUpCard) return;
+                      if (isSwapPhase) handleSwapClick('faceUp', topFaceUpCard.id);
+                      else if (source === 'faceUp' && isMyTurn) toggleSelect(topFaceUpCard.id);
+                    },
+                  })}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

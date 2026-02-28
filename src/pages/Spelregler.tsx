@@ -42,7 +42,7 @@ const Spelregler = () => {
           <p className="mb-2 text-sm font-semibold uppercase tracking-[0.25em] text-primary">Spelregler</p>
           <h1 className="mb-4 text-3xl font-bold text-foreground sm:text-4xl">Vändtia, som den fungerar här</h1>
           <p className="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
-            Det här är appens egen variant av vändtia. Reglerna nedan följer spelet som faktiskt är implementerat, så de matchar vad som händer i både solo- och onlineläget.
+            Detta är familjen Froms variant av vändtia, har du eventuella invändningar kan du skapa din egen app, TACK. Reglerna nedan följer spelet som faktiskt är implementerat, så de matchar vad som händer i både mot Örjan och onlineläget.
           </p>
         </section>
 
@@ -61,7 +61,7 @@ const Spelregler = () => {
         <section className="rounded-2xl border border-border bg-card/70 p-5 text-left backdrop-blur-sm">
           <h2 className="mb-3 text-lg font-semibold text-foreground">När du inte kan spela</h2>
           <p className="mb-3 text-sm leading-7 text-muted-foreground">
-            Om du har handkort eller uppvända kort kvar och inget av dem går att lägga, kan du ibland chansa från talongen. Då drar du ett kort. Kan det spelas, läggs det direkt. Kan det inte spelas måste du ta upp hela högen och fortsätta din tur.
+            Om du har inte har kort att lägga, kan du chansa från talongen. Då drar du ett kort. Kan det spelas, läggs det direkt. Kan det inte spelas måste du ta upp hela högen och fortsätta din tur.
           </p>
           <p className="text-sm leading-7 text-muted-foreground">
             Om du väljer att ta upp högen får du alla kort i högen på handen och spelar vidare direkt. När handen är slut spelar du dina uppvända kort. När även de är slut spelar du ett nedåtvänt kort i taget på chans. Passar det inte måste du ta upp högen plus det kortet.
@@ -71,7 +71,9 @@ const Spelregler = () => {
         <section className="rounded-2xl border border-border bg-card/70 p-5 text-left backdrop-blur-sm">
           <h2 className="mb-3 text-lg font-semibold text-foreground">Värt att tänka på</h2>
           <ul className="space-y-3 text-sm leading-7 text-muted-foreground">
+            <li>Örjan kan bli otrevlig, både när han vinner och förlorar. Kör därför enbart mot honom om du besitter någon typ av självdistans.</li>
             <li>Du kan lägga flera kort samtidigt, men bara om de har samma värde.</li>
+            <li>I bytfasen får du stapla ett handkort ovanpå ett uppvänt bordskort om de har samma värde.</li>
             <li>Om ditt sista handkort matchar ett uppvänt bordskort får du lägga det direkt i samma tur.</li>
             <li>Du får inte ta upp högen om du precis har lagt en 2:a och måste täcka den.</li>
             <li>Första spelaren som blir av med alla sina kort vinner direkt.</li>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { playCards, type Card, type GameState } from '@/lib/gameEngine';
+import { playCards, swapCards, type Card, type GameState } from '@/lib/gameEngine';
 
 const card = (id: string, value: number): Card => ({
   id,
@@ -12,13 +12,13 @@ const createState = (): GameState => ({
     {
       name: 'Alice',
       hand: [card('two-1', 2), card('two-2', 2), card('seven', 7)],
-      faceUp: [],
+      faceUp: [[], [], []],
       faceDown: [],
     },
     {
       name: 'Bob',
       hand: [card('bob-8', 8)],
-      faceUp: [],
+      faceUp: [[], [], []],
       faceDown: [],
     },
   ],
@@ -64,7 +64,7 @@ describe('playCards - twos chain', () => {
         {
           name: 'Alice',
           hand: [card('two', 2), card('seven', 7), card('eight', 8)],
-          faceUp: [],
+          faceUp: [[], [], []],
           faceDown: [],
         },
         createState().players[1],
@@ -87,7 +87,7 @@ describe('playCards - twos chain', () => {
         {
           name: 'Alice',
           hand: [card('last-two', 2)],
-          faceUp: [],
+          faceUp: [[], [], []],
           faceDown: [],
         },
         createState().players[1],
@@ -110,7 +110,7 @@ describe('playCards - twos chain', () => {
         {
           name: 'Alice',
           hand: [card('last-seven', 7)],
-          faceUp: [card('table-seven', 7)],
+          faceUp: [[card('table-seven', 7)], [], []],
           faceDown: [card('hidden', 9)],
         },
         createState().players[1],
@@ -121,7 +121,7 @@ describe('playCards - twos chain', () => {
 
     expect(afterPlay.currentPlayerIndex).toBe(0);
     expect(afterPlay.players[0].hand).toHaveLength(0);
-    expect(afterPlay.players[0].faceUp.map((currentCard) => currentCard.id)).toContain('table-seven');
+    expect(afterPlay.players[0].faceUp[0].map((currentCard) => currentCard.id)).toContain('table-seven');
     expect(afterPlay.message).toContain('matchande uppvänt bordskort');
   });
 
@@ -132,7 +132,7 @@ describe('playCards - twos chain', () => {
         {
           name: 'Alice',
           hand: [card('last-seven', 7)],
-          faceUp: [card('table-nine', 9)],
+          faceUp: [[card('table-nine', 9)], [], []],
           faceDown: [card('hidden', 8)],
         },
         createState().players[1],
@@ -143,5 +143,28 @@ describe('playCards - twos chain', () => {
 
     expect(afterPlay.currentPlayerIndex).toBe(1);
     expect(afterPlay.message).toBe('Bobs tur.');
+  });
+});
+
+describe('swapCards', () => {
+  it('stacks matching cards on the same face-up table slot during setup', () => {
+    const state: GameState = {
+      ...createState(),
+      phase: 'swap',
+      players: [
+        {
+          name: 'Alice',
+          hand: [card('hand-seven', 7), card('other', 9)],
+          faceUp: [[card('table-seven', 7)], [card('table-three', 3)], []],
+          faceDown: [card('down-1', 4), card('down-2', 5), card('down-3', 6)],
+        },
+        createState().players[1],
+      ],
+    };
+
+    const afterSwap = swapCards(state, 0, 'hand-seven', 'table-seven');
+
+    expect(afterSwap.players[0].hand.map((currentCard) => currentCard.id)).toEqual(['other']);
+    expect(afterSwap.players[0].faceUp[0].map((currentCard) => currentCard.id)).toEqual(['table-seven', 'hand-seven']);
   });
 });

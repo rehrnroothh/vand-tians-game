@@ -9,13 +9,13 @@ const createState = (overrides?: Partial<GameState>): GameState => ({
     {
       name: 'Örjan',
       hand: [card('h-3', 3), card('h-2', 2), card('h-10', 10)],
-      faceUp: [card('u-5', 5), card('u-7', 7), card('u-8', 8)],
+      faceUp: [[card('u-5', 5)], [card('u-7', 7)], [card('u-8', 8)]],
       faceDown: [card('d-9', 9)],
     },
     {
       name: 'You',
       hand: [card('p-4', 4)],
-      faceUp: [],
+      faceUp: [[], [], []],
       faceDown: [],
     },
   ],
@@ -51,7 +51,7 @@ describe('chooseRobotPlayDecision', () => {
         {
           name: 'Robot',
           hand: [card('h-7', 7), card('h-10', 10)],
-          faceUp: [],
+          faceUp: [[], [], []],
           faceDown: [],
         },
         createState().players[1],
@@ -68,7 +68,7 @@ describe('chooseRobotPlayDecision', () => {
         {
           name: 'Robot',
           hand: [card('h-3', 3), card('h-4', 4)],
-          faceUp: [],
+          faceUp: [[], [], []],
           faceDown: [],
         },
         createState().players[1],

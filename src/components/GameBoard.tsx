@@ -14,6 +14,9 @@ import {
   cardLabel,
   suitSymbols,
   dealGame,
+  getFaceUpCards,
+  getFaceUpTopCards,
+  normalizeGameState,
 } from '@/lib/gameEngine';
 import { RotateCcw, ArrowUp, Hand } from 'lucide-react';
 import { chooseRobotPlayDecision, chooseRobotSwapDecision } from '@/lib/robotAi';
@@ -25,9 +28,8 @@ interface GameBoardProps {
 
 const ORJAN_LOSING_LINES = [
   'Örjan Lax: “Jaha. Kul. Då var det alltså riggat, kukkannen.”',
-  'Örjan Lax: "Det där räknas inte. Reglerna är ju felprogrammerade”',,
-  'Örjan Lax: "Snyggt. Man ska alltså vinna på tur nu. Fantastiskt.”',
-  'Örjan Lax: "Om du ska fuska kan vi lika gärna lägga ned denna skit.”',
+  'Örjan Lax: "Din jävla BillyButt-kopia, det där räknas inte. Reglerna är ju felprogrammerade”',,
+  'Örjan Lax: "Om du ska fuska kan vi lika gärna lägga ned denna skit med en gång.”',
   'Örjan Lax: "Okej, grattis då förfan. Men det här säger mer om spelet än om mig.”',
   'Örjan Lax: "Jag förlorade inte. Jag avbröt.”',
   'Örjan Lax: "Det där är inte ett ‘spel’, det är ett jävla irritationsmoment.”',
@@ -46,18 +48,17 @@ const ORJAN_LOSS_IMAGE = {
 
 const ORJAN_WINNING_LINES = [
   'Örjan Lax: "Det var inte så svårt. Det svåra var att stå ut med dig och processen.”',
-  'Örjan Lax: "Okej, nu kan vi sluta. Jag har bevisat poängen.”',
   'Örjan Lax: "Grattis till din insats. Du var… närvarande.”',
   'Örjan Lax: "Du märker skillnaden när man tänker innan man gör.”',
   'Örjan Lax: "Snyggt. Och då menar jag: av mig, idiot.”',
   'Örjan Lax: "Alltså, jag säger inte att du var helt usel… men du gjorde ditt bästa för att bevisa motsatsen.”',
-  'Örjan Lax: "Det är nästan rörande hur du försökte. Nästan.”',
+  'Örjan Lax: "Det är nästan rörande hur du försökte.”',
   'Örjan Lax: "Ja, det här är exakt varför jag inte gillar spel. Man tvingas vinna åt andra.”',
   'Örjan Lax: "Bra. Då kan vi gå vidare till något vuxet för en gångs jävla skull.”',
 ];
 
 const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
-  const [state, setState] = useState<GameState>(initialState);
+  const [state, setState] = useState<GameState>(() => normalizeGameState(initialState));
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [swapSource, setSwapSource] = useState<{ type: 'hand' | 'faceUp'; id: string } | null>(null);
   const [finalLine, setFinalLine] = useState('');
@@ -69,6 +70,8 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
   const humanPlayerIndex = state.players.findIndex((player) => !isRobotPlayer(player.name));
   const myPlayerIndex = humanPlayerIndex === -1 ? 0 : humanPlayerIndex;
   const myPlayer = state.players[myPlayerIndex];
+  const myFaceUpCards = getFaceUpCards(myPlayer);
+  const myFaceUpTopCards = getFaceUpTopCards(myPlayer);
   const source = getPlaySource(myPlayer);
   const isMyTurn = state.currentPlayerIndex === myPlayerIndex;
 
@@ -86,14 +89,19 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
     ? state.discardPile[state.discardPile.length - 1]
     : null;
 
+  const getFaceUpStackCardIds = (cardId: string) => {
+    const stack = myPlayer.faceUp.find((currentStack) => currentStack.some((card) => card.id === cardId));
+    return stack ? stack.map((card) => card.id) : [];
+  };
+
   const toggleSelect = (cardId: string) => {
     if (isSwapPhase) return;
     
     if (!isMyTurn) return;
 
-    const card = [...myPlayer.hand, ...myPlayer.faceUp, ...myPlayer.faceDown]
-
-      .find(c => c.id === cardId);
+    const nextCardIds = source === 'faceUp' ? getFaceUpStackCardIds(cardId) : [cardId];
+    const card = [...myPlayer.hand, ...myFaceUpCards, ...myPlayer.faceDown]
+      .find(c => c.id === nextCardIds[0]);
     if (!card) return;
 
     if (source === 'faceDown') {
@@ -102,19 +110,21 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
       return;
     }
 
-    if (selectedCards.includes(cardId)) {
-      setSelectedCards(selectedCards.filter(id => id !== cardId));
+    const isAlreadySelected = nextCardIds.every((id) => selectedCards.includes(id));
+
+    if (isAlreadySelected) {
+      setSelectedCards(selectedCards.filter(id => !nextCardIds.includes(id)));
     } else {
       // Can only select cards of same value
       if (selectedCards.length > 0) {
-        const firstCard = [...myPlayer.hand, ...myPlayer.faceUp]
+        const firstCard = [...myPlayer.hand, ...myFaceUpCards]
           .find(c => c.id === selectedCards[0]);
         if (firstCard && firstCard.value !== card.value) {
-          setSelectedCards([cardId]);
+          setSelectedCards(nextCardIds);
           return;
         }
       }
-      setSelectedCards([...selectedCards, cardId]);
+      setSelectedCards([...selectedCards.filter(id => !nextCardIds.includes(id)), ...nextCardIds]);
     }
   };
 
@@ -164,14 +174,14 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
   // Check if selected cards can be played
   const canPlay = selectedCards.length > 0 && (() => {
     const cards = selectedCards.map(id =>
-      [...myPlayer.hand, ...myPlayer.faceUp].find(c => c.id === id)
+      [...myPlayer.hand, ...myFaceUpCards].find(c => c.id === id)
     ).filter(Boolean);
     if (cards.length === 0) return false;
     return canPlayCard(cards[0]!, state.discardPile);
   })();
 
   // Check if any card in hand/faceUp can be played
-  const sourceCards = source === 'hand' ? myPlayer.hand : source === 'faceUp' ? myPlayer.faceUp : [];
+  const sourceCards = source === 'hand' ? myPlayer.hand : source === 'faceUp' ? myFaceUpCards : [];
   const hasPlayableCard = sourceCards.some(c => canPlayCard(c, state.discardPile));
   const canTryTalong =
     state.phase === 'play' &&
@@ -190,7 +200,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
 
     const renderTableStack = (
       faceDownCard: Card | undefined,
-      faceUpCard: Card | undefined,
+      faceUpStack: Card[],
       options?: {
         allowFaceDownPlay?: boolean;
         allowFaceUpSelection?: boolean;
@@ -199,6 +209,8 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
         onFaceUpClick?: () => void;
       },
     ) => {
+      const faceUpCard = faceUpStack[faceUpStack.length - 1];
+      const stackCount = faceUpStack.length;
       const showFaceDown = !!faceDownCard;
       const showFaceUp = !!faceUpCard;
   
@@ -221,6 +233,9 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
           )}
           {showFaceUp && (
             <div className="absolute inset-0 z-10">
+              {stackCount > 1 && (
+                <div className="absolute inset-x-1 top-1 bottom-0 rounded-lg border border-border/30 bg-card/40" />
+              )}
               <MiniCard
                 card={faceUpCard}
                 small
@@ -228,6 +243,11 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
                 disabled={!options?.allowFaceUpSelection}
                 onClick={options?.onFaceUpClick}
               />
+              {stackCount > 1 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  {stackCount}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -322,7 +342,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
       <div className="flex gap-2 justify-center mb-2 flex-wrap">
         {state.players.map((p, i) => {
           if (i === myPlayerIndex) return null;
-          const total = p.hand.length + p.faceUp.length + p.faceDown.length;
+          const total = p.hand.length + getFaceUpCards(p).length + p.faceDown.length;
           return (
             <div key={i} className={`bg-card rounded-lg px-3 py-1.5 text-xs border ${i === state.currentPlayerIndex ? 'border-primary text-gold' : 'border-border text-muted-foreground'}`}>
               {p.name}: {total} kort
@@ -392,25 +412,26 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
       <div className="mb-4">
         <p className="text-xs text-muted-foreground mb-2 text-center uppercase tracking-wider">Bordskort</p>
         <div className="flex justify-center gap-3">
-          {[0, 1, 2].map(i => (
-           <div key={i}>
-           {renderTableStack(myPlayer.faceDown[i], myPlayer.faceUp[i], {
-             allowFaceDownPlay: isMyTurn && source === 'faceDown',
-             allowFaceUpSelection: isMyTurn && (isSwapPhase || source === 'faceUp'),
-             faceUpSelected: myPlayer.faceUp[i]
-               ? (isSwapPhase ? swapSource?.id === myPlayer.faceUp[i].id : selectedCards.includes(myPlayer.faceUp[i].id))
-               : false,
-             onFaceDownClick: () => isMyTurn && source === 'faceDown' && myPlayer.faceDown[i] && toggleSelect(myPlayer.faceDown[i].id),
-             onFaceUpClick: () => {
-               if (!myPlayer.faceUp[i]) return;
-               if (isSwapPhase) handleSwapClick('faceUp', myPlayer.faceUp[i].id);
-               else if (source === 'faceUp') toggleSelect(myPlayer.faceUp[i].id);
-             },
-           })}
-
-
-            </div>
-          ))}
+          {[0, 1, 2].map(i => {
+            const topFaceUpCard = myFaceUpTopCards[i];
+            return (
+              <div key={i}>
+                {renderTableStack(myPlayer.faceDown[i], myPlayer.faceUp[i], {
+                  allowFaceDownPlay: isMyTurn && source === 'faceDown',
+                  allowFaceUpSelection: isMyTurn && (isSwapPhase || source === 'faceUp'),
+                  faceUpSelected: topFaceUpCard
+                    ? (isSwapPhase ? swapSource?.id === topFaceUpCard.id : selectedCards.includes(topFaceUpCard.id))
+                    : false,
+                  onFaceDownClick: () => isMyTurn && source === 'faceDown' && myPlayer.faceDown[i] && toggleSelect(myPlayer.faceDown[i].id),
+                  onFaceUpClick: () => {
+                    if (!topFaceUpCard) return;
+                    if (isSwapPhase) handleSwapClick('faceUp', topFaceUpCard.id);
+                    else if (source === 'faceUp') toggleSelect(topFaceUpCard.id);
+                  },
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
 
