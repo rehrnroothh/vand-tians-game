@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { createRoom, joinRoom } from '@/lib/roomService';
 import { Loader2, Plus, LogIn } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface LobbyScreenProps {
   onJoined: (roomId: string, roomCode: string, sessionId: string, playerName: string, isHost: boolean) => void;
@@ -69,6 +70,12 @@ const LobbyScreen = ({ onJoined, onStartSinglePlayer }: LobbyScreenProps) => {
             </button>
             <button onClick={onStartSinglePlayer} className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg flex items-center justify-center gap-2">              Kör mot Örjan Lax 24/7 
             </button>
+            <Link
+              to="/spelregler"
+              className="w-full rounded-xl border border-border bg-card/70 py-3 text-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Läs spelregler
+            </Link>
           </div>
         )}
 
