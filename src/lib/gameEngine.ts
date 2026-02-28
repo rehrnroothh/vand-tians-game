@@ -281,8 +281,6 @@ export const playCards = (
     }
   }
 
-  const playerHasNoCards = hasWon(player);
-
   // Add to discard pile
   newState.discardPile.push(...cards);
   newState.lastPlayedCards = cards;
@@ -325,12 +323,18 @@ export const playCards = (
     newState.mustCoverTwoPlayerIndex = null;
   }
 
-  if (playedTwo && playerHasNoCards) {
-    newState.winner = newState.currentPlayerIndex;
-    newState.phase = 'finished';
-    newState.message = `🎉 ${player.name} vinner!`;
-    return newState;
-  } else if (playedTwo) {
+  if (playedTwo) {
+    if (source === 'hand') {
+      refillHand(player, newState.drawPile);
+    }
+
+    if (hasWon(player)) {
+      newState.winner = newState.currentPlayerIndex;
+      newState.phase = 'finished';
+      newState.message = `🎉 ${player.name} vinner!`;
+      return newState;
+    }
+
     // A 2 was just played (without clearing). Same player must immediately play again.
     newState.mustCoverTwo = true;
     newState.mustCoverTwoPlayerIndex = newState.currentPlayerIndex;

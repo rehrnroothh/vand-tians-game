@@ -56,4 +56,50 @@ describe('playCards - twos chain', () => {
     expect(afterSeven.phase).toBe('finished');
     expect(afterSeven.winner).toBe(0);
   });
+
+  it('refills from the talong before the forced follow-up after playing a 2', () => {
+    const stateWithDraw: GameState = {
+      ...createState(),
+      players: [
+        {
+          name: 'Alice',
+          hand: [card('two', 2), card('seven', 7), card('eight', 8)],
+          faceUp: [],
+          faceDown: [],
+        },
+        createState().players[1],
+      ],
+      drawPile: [card('draw-9', 9)],
+    };
+
+    const afterTwo = playCards(stateWithDraw, ['two']);
+
+    expect(afterTwo.mustCoverTwo).toBe(true);
+    expect(afterTwo.players[0].hand).toHaveLength(3);
+    expect(afterTwo.players[0].hand.map((currentCard) => currentCard.id)).toContain('draw-9');
+    expect(afterTwo.drawPile).toHaveLength(0);
+  });
+
+  it('does not finish the game if a played 2 is replaced from the talong', () => {
+    const stateWithReplacement: GameState = {
+      ...createState(),
+      players: [
+        {
+          name: 'Alice',
+          hand: [card('last-two', 2)],
+          faceUp: [],
+          faceDown: [],
+        },
+        createState().players[1],
+      ],
+      drawPile: [card('draw-6', 6)],
+    };
+
+    const afterTwo = playCards(stateWithReplacement, ['last-two']);
+
+    expect(afterTwo.phase).toBe('play');
+    expect(afterTwo.winner).toBeNull();
+    expect(afterTwo.mustCoverTwo).toBe(true);
+    expect(afterTwo.players[0].hand.map((currentCard) => currentCard.id)).toEqual(['draw-6']);
+  });
 });
