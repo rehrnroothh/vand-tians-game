@@ -71,10 +71,10 @@ const Spelregler = () => {
         <section className="rounded-2xl border border-border bg-card/70 p-5 text-left backdrop-blur-sm">
           <h2 className="mb-3 text-lg font-semibold text-foreground">Värt att tänka på</h2>
           <ul className="space-y-3 text-sm leading-7 text-muted-foreground">
-            <li>Örjan kan bli otrevlig, både när han vinner och förlorar. Kör därför enbart mot honom om du besitter någon typ av självdistans.</li>
+            <li>Örjan kan bli rätt otrevlig, både när han vinner och förlorar. Kör därför enbart mot honom om du besitter någon typ av självdistans.</li>
             <li>Du kan lägga flera kort samtidigt, men bara om de har samma värde.</li>
             <li>I bytfasen får du stapla ett handkort ovanpå ett uppvänt bordskort om de har samma värde, och då drar du direkt ett nytt kort från talongen.</li>
-            <li>Om ditt sista handkort matchar ett uppvänt bordskort får du lägga det direkt i samma tur.</li>
+            <li>Om ditt sista handkort matchar ett uppvänt bordskort får du lägga just de matchande bordskorten direkt i samma tur, annars går turen vidare.</li>
             <li>Du får inte ta upp högen om du precis har lagt en 2:a och måste täcka den.</li>
             <li>Första spelaren som blir av med alla sina kort vinner direkt.</li>
           </ul>

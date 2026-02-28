@@ -23,6 +23,7 @@ export interface GameState {
   lastPlayedCards: Card[];
   mustCoverTwo: boolean;
   mustCoverTwoPlayerIndex: number | null;
+  mustPlayMatchingTableValue: number | null;
 }
 
 export const suitSymbols: Record<Card['suit'], string> = {
@@ -86,6 +87,7 @@ const normalizeFaceUpStacks = (faceUp: Card[][] | Card[] | undefined): Card[][] 
 
 export const normalizeGameState = (state: GameState): GameState => {
   const newState = structuredClone(state);
+  newState.mustPlayMatchingTableValue = newState.mustPlayMatchingTableValue ?? null;
   newState.players = newState.players.map((player) => ({
     ...player,
     faceUp: normalizeFaceUpStacks(player.faceUp as unknown as Card[][] | Card[]),
@@ -166,6 +168,7 @@ export const dealGame = (playerNames: string[]): GameState => {
     lastPlayedCards: [],
     mustCoverTwo: false,
     mustCoverTwoPlayerIndex: null,
+    mustPlayMatchingTableValue: null,
   };
 };
 
@@ -267,11 +270,13 @@ export const swapCards = (
 
   if (handCard.value === topFaceUpCard.value) {
     faceUpStack.push(...player.hand.splice(handIdx, 1));
-    if (newState.drawPile.length > 0) {
+    if (player.hand.length < 3 && newState.drawPile.length > 0) {
       player.hand.push(newState.drawPile.pop()!);
     }
   } else {
-    [player.hand[handIdx], faceUpStack[faceUpStack.length - 1]] = [topFaceUpCard, handCard];
+    const [newFaceUpCard] = player.hand.splice(handIdx, 1);
+    const returnedStackCards = faceUpStack.splice(0, faceUpStack.length, newFaceUpCard);
+    player.hand.push(...returnedStackCards);
   }
 
   player.hand.sort((a, b) => a.value - b.value);
@@ -340,6 +345,10 @@ export const playCards = (
     
     // Validate: all same value
     if (!cards.every(c => c.value === cards[0].value)) return state;
+    if (source === 'faceUp' && newState.mustPlayMatchingTableValue !== null && cards[0].value !== newState.mustPlayMatchingTableValue) {
+      newState.message = `${player.name}: Du måste spela uppvänt bordskort med värde ${cardLabel(newState.mustPlayMatchingTableValue)}.`;
+      return newState;
+    }
     // Validate: can play
     if (!canPlayCard(cards[0], newState.discardPile)) return state;
     
@@ -374,6 +383,7 @@ export const playCards = (
     // Clearing the pile always cancels any pending "must cover 2"
     newState.mustCoverTwo = false;
     newState.mustCoverTwoPlayerIndex = null;
+    newState.mustPlayMatchingTableValue = null;
     newState.discardPile = [];
     // Refill hand
     if (source === 'hand') {
@@ -404,6 +414,7 @@ export const playCards = (
   }
 
   if (playedTwo) {
+    newState.mustPlayMatchingTableValue = null;
     if (source === 'hand') {
       refillHand(player, newState.drawPile);
     }
@@ -427,10 +438,14 @@ export const playCards = (
     refillHand(player, newState.drawPile);
   }
 
-  const canContinueFromTableWithMatch =
+  const matchingFaceUpCards =
     source === 'hand' &&
     player.hand.length === 0 &&
-    getFaceUpCards(player).some(faceUpCard => faceUpCard.value === cards[0].value);
+    getFaceUpCards(player).filter(faceUpCard => faceUpCard.value === cards[0].value);
+
+  if (source === 'faceUp') {
+    newState.mustPlayMatchingTableValue = null;
+  }
   
   // Check win
   if (hasWon(player)) {
@@ -440,10 +455,13 @@ export const playCards = (
     return newState;
   }
 
-  if (canContinueFromTableWithMatch) {
+  if (matchingFaceUpCards && matchingFaceUpCards.length > 0) {
+    newState.mustPlayMatchingTableValue = cards[0].value;
     newState.message = `${player.name} kan fortsätta direkt med matchande uppvänt bordskort.`;
     return newState;
   }
+
+  newState.mustPlayMatchingTableValue = null;
   
   // Next player
   newState.currentPlayerIndex = nextPlayer(newState);
@@ -509,6 +527,13 @@ export const pickUpPile = (state: GameState): GameState => {
     };
   }
 
+  if (state.mustPlayMatchingTableValue !== null) {
+    return {
+      ...state,
+      message: `${state.players[state.currentPlayerIndex].name}: Turen går vidare om du inte har matchande uppvänt bordskort.`,
+    };
+  }
+
   const newState = normalizeGameState(state);
   const player = newState.players[newState.currentPlayerIndex];
   
@@ -516,6 +541,7 @@ export const pickUpPile = (state: GameState): GameState => {
   player.hand.sort((a, b) => a.value - b.value);
   newState.discardPile = [];
   newState.lastPlayedCards = [];
+  newState.mustPlayMatchingTableValue = null;
   // Turn does NOT pass – the player who picked up starts playing
   newState.message = `${player.name} tog upp högen och spelar vidare.`;
   

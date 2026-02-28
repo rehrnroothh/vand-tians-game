@@ -86,7 +86,11 @@ export const chooseRobotPlayDecision = (state: GameState, playerIndex: number): 
     return blindCard ? { type: 'faceDown', cardId: blindCard.id } : { type: 'pickup' };
   }
 
-  const availableCards = source === 'hand' ? player.hand : getFaceUpCards(player);
+  const availableCards = source === 'hand'
+    ? player.hand
+    : getFaceUpCards(player).filter((card) =>
+        state.mustPlayMatchingTableValue === null || card.value === state.mustPlayMatchingTableValue,
+      );
   const playableCards = availableCards.filter((card) => canPlayCard(card, state.discardPile));
 
   if (playableCards.length === 0) {

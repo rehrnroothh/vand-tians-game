@@ -32,6 +32,7 @@ const createState = (): GameState => ({
   lastPlayedCards: [],
   mustCoverTwo: false,
   mustCoverTwoPlayerIndex: null,
+  mustPlayMatchingTableValue: null,
 });
 
 describe('playCards - twos chain', () => {
@@ -123,6 +124,7 @@ describe('playCards - twos chain', () => {
     expect(afterPlay.players[0].hand).toHaveLength(0);
     expect(afterPlay.players[0].faceUp[0].map((currentCard) => currentCard.id)).toContain('table-seven');
     expect(afterPlay.message).toContain('matchande uppvänt bordskort');
+    expect(afterPlay.mustPlayMatchingTableValue).toBe(7);
   });
 
   it('passes the turn when the last hand card does not match a face-up table card', () => {
@@ -143,6 +145,35 @@ describe('playCards - twos chain', () => {
 
     expect(afterPlay.currentPlayerIndex).toBe(1);
     expect(afterPlay.message).toBe('Bobs tur.');
+    expect(afterPlay.mustPlayMatchingTableValue).toBeNull();
+  });
+
+  it('only allows the matching face-up table value on the immediate follow-up play', () => {
+    const stateWithMultipleFaceUpValues: GameState = {
+      ...createState(),
+      players: [
+        {
+          name: 'Alice',
+          hand: [card('last-seven', 7)],
+          faceUp: [[card('table-seven', 7)], [card('table-nine', 9)], []],
+          faceDown: [card('hidden', 8)],
+        },
+        createState().players[1],
+      ],
+    };
+
+    const afterHandPlay = playCards(stateWithMultipleFaceUpValues, ['last-seven']);
+    const invalidFollowUp = playCards(afterHandPlay, ['table-nine']);
+    const validFollowUp = playCards(afterHandPlay, ['table-seven']);
+
+    expect(invalidFollowUp.discardPile.at(-1)?.id).toBe('last-seven');
+    expect(invalidFollowUp.currentPlayerIndex).toBe(0);
+    expect(invalidFollowUp.mustPlayMatchingTableValue).toBe(7);
+    expect(invalidFollowUp.message).toContain('värde 7');
+
+    expect(validFollowUp.discardPile.at(-1)?.id).toBe('table-seven');
+    expect(validFollowUp.currentPlayerIndex).toBe(1);
+    expect(validFollowUp.mustPlayMatchingTableValue).toBeNull();
   });
 });
 
@@ -168,5 +199,49 @@ describe('swapCards', () => {
     expect(afterSwap.players[0].hand.map((currentCard) => currentCard.id)).toEqual(['draw-replacement', 'other']);
     expect(afterSwap.players[0].faceUp[0].map((currentCard) => currentCard.id)).toEqual(['table-seven', 'hand-seven']);
     expect(afterSwap.drawPile).toHaveLength(0);
+  });
+
+  it('returns the full stacked slot to hand when swapping in a different value', () => {
+    const state: GameState = {
+      ...createState(),
+      phase: 'swap',
+      players: [
+        {
+          name: 'Alice',
+          hand: [card('hand-nine', 9), card('other', 4)],
+          faceUp: [[card('table-seven-a', 7), card('table-seven-b', 7)], [card('table-three', 3)], []],
+          faceDown: [card('down-1', 4), card('down-2', 5), card('down-3', 6)],
+        },
+        createState().players[1],
+      ],
+    };
+
+    const afterSwap = swapCards(state, 0, 'hand-nine', 'table-seven-b');
+
+    expect(afterSwap.players[0].faceUp[0].map((currentCard) => currentCard.id)).toEqual(['hand-nine']);
+    expect(afterSwap.players[0].hand.map((currentCard) => currentCard.id)).toEqual(['other', 'table-seven-a', 'table-seven-b']);
+  });
+
+  it('does not draw from the talong during a matching stack if the hand still has at least three cards', () => {
+    const state: GameState = {
+      ...createState(),
+      phase: 'swap',
+      drawPile: [card('draw-replacement', 5)],
+      players: [
+        {
+          name: 'Alice',
+          hand: [card('hand-seven', 7), card('extra-1', 9), card('extra-2', 8), card('extra-3', 6)],
+          faceUp: [[card('table-seven', 7)], [card('table-three', 3)], []],
+          faceDown: [card('down-1', 4), card('down-2', 5), card('down-3', 6)],
+        },
+        createState().players[1],
+      ],
+    };
+
+    const afterSwap = swapCards(state, 0, 'hand-seven', 'table-seven');
+
+    expect(afterSwap.players[0].hand.map((currentCard) => currentCard.id)).toEqual(['extra-3', 'extra-2', 'extra-1']);
+    expect(afterSwap.players[0].faceUp[0].map((currentCard) => currentCard.id)).toEqual(['table-seven', 'hand-seven']);
+    expect(afterSwap.drawPile.map((currentCard) => currentCard.id)).toEqual(['draw-replacement']);
   });
 });

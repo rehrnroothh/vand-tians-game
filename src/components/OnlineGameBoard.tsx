@@ -127,11 +127,16 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     await updateGameState(roomId, normalizedState);
   };
 
-  const getFaceUpStackCardIds = (cardId: string) => {
-    if (!me) return [];
-    const stack = me.faceUp.find((currentStack) => currentStack.some((card) => card.id === cardId));
-    return stack ? stack.map((card) => card.id) : [];
+  const getFaceUpValueCardIds = (cardId: string) => {
+    const clickedCard = meFaceUpCards.find((card) => card.id === cardId);
+    if (!clickedCard) return [];
+    return getFaceUpValueCardIdsForPlayer(me, clickedCard.value);
   };
+
+  const getFaceUpValueCardIdsForPlayer = (player: GameState['players'][number], value: number) =>
+    getFaceUpCards(player)
+      .filter((card) => card.value === value)
+      .map((card) => card.id);
 
   const toggleSelect = (cardId: string) => {
     if (!isMyTurn || !me) return;
@@ -140,7 +145,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       return;
     }
 
-    const nextCardIds = source === 'faceUp' ? getFaceUpStackCardIds(cardId) : [cardId];
+    const nextCardIds = source === 'faceUp' ? getFaceUpValueCardIds(cardId) : [cardId];
     const card = [...me.hand, ...meFaceUpCards, ...me.faceDown].find((currentCard) => currentCard.id === nextCardIds[0]);
     if (!card) return;
 
@@ -162,8 +167,18 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
 
   const handlePlay = async () => {
     if (!selectedCards.length || !isMyTurn) return;
-    await applyAndSync(playCards(state, selectedCards));
-    setSelectedCards([]);
+    const newState = playCards(state, selectedCards);
+    if (newState.currentPlayerIndex === playerIndex && newState.mustPlayMatchingTableValue !== null) {
+      setSelectedCards(
+        getFaceUpValueCardIdsForPlayer(
+          newState.players[playerIndex],
+          newState.mustPlayMatchingTableValue,
+        ),
+      );
+    } else {
+      setSelectedCards([]);
+    }
+    await applyAndSync(newState);
   };
 
   const handlePickUp = async () => {
@@ -210,7 +225,8 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     isMyTurn &&
     state.discardPile.length > 0 &&
     source !== 'faceDown' &&
-    !mustCoverTwoNow;
+    !mustCoverTwoNow &&
+    state.mustPlayMatchingTableValue === null;
 
 
     const renderTableStack = (
@@ -387,11 +403,21 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
           <div className="flex justify-center gap-3">
             {[0, 1, 2].map(i => {
               const topFaceUpCard = meFaceUpTopCards[i];
+              const allowFaceUpSelection = isMyTurn && (
+                isSwapPhase ||
+                (
+                  source === 'faceUp' &&
+                  (
+                    state.mustPlayMatchingTableValue === null ||
+                    topFaceUpCard?.value === state.mustPlayMatchingTableValue
+                  )
+                )
+              );
               return (
                 <div key={i}>
                   {renderTableStack(me.faceDown[i], me.faceUp[i], {
                     allowFaceDownPlay: isMyTurn && source === 'faceDown',
-                    allowFaceUpSelection: isMyTurn && (isSwapPhase || source === 'faceUp'),
+                    allowFaceUpSelection,
                     faceUpSelected: topFaceUpCard
                       ? (isSwapPhase ? swapSource?.id === topFaceUpCard.id : selectedCards.includes(topFaceUpCard.id))
                       : false,

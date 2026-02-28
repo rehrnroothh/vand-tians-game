@@ -29,6 +29,7 @@ const createState = (overrides?: Partial<GameState>): GameState => ({
   lastPlayedCards: [],
   mustCoverTwo: false,
   mustCoverTwoPlayerIndex: null,
+  mustPlayMatchingTableValue: null,
   ...overrides,
 });
 

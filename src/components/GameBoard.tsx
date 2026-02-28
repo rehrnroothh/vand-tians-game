@@ -90,17 +90,23 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
     ? state.discardPile[state.discardPile.length - 1]
     : null;
 
-  const getFaceUpStackCardIds = (cardId: string) => {
-    const stack = myPlayer.faceUp.find((currentStack) => currentStack.some((card) => card.id === cardId));
-    return stack ? stack.map((card) => card.id) : [];
+  const getFaceUpValueCardIds = (cardId: string) => {
+    const clickedCard = myFaceUpCards.find((card) => card.id === cardId);
+    if (!clickedCard) return [];
+    return getFaceUpValueCardIdsForPlayer(myPlayer, clickedCard.value);
   };
+
+  const getFaceUpValueCardIdsForPlayer = (player: GameState['players'][number], value: number) =>
+    getFaceUpCards(player)
+      .filter((card) => card.value === value)
+      .map((card) => card.id);
 
   const toggleSelect = (cardId: string) => {
     if (isSwapPhase) return;
     
     if (!isMyTurn) return;
 
-    const nextCardIds = source === 'faceUp' ? getFaceUpStackCardIds(cardId) : [cardId];
+    const nextCardIds = source === 'faceUp' ? getFaceUpValueCardIds(cardId) : [cardId];
     const card = [...myPlayer.hand, ...myFaceUpCards, ...myPlayer.faceDown]
       .find(c => c.id === nextCardIds[0]);
     if (!card) return;
@@ -133,6 +139,16 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
     if (!isMyTurn || selectedCards.length === 0) return;
     const newState = playCards(state, selectedCards);
     setState(newState);
+    if (newState.currentPlayerIndex === myPlayerIndex && newState.mustPlayMatchingTableValue !== null) {
+      setSelectedCards(
+        getFaceUpValueCardIdsForPlayer(
+          newState.players[myPlayerIndex],
+          newState.mustPlayMatchingTableValue,
+        ),
+      );
+      return;
+    }
+
     setSelectedCards([]);
   };
 
@@ -195,7 +211,8 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
     isMyTurn &&
     state.discardPile.length > 0 &&
     source !== 'faceDown' &&
-    !mustCoverTwoNow;
+    !mustCoverTwoNow &&
+    state.mustPlayMatchingTableValue === null;
 
   
 
@@ -428,11 +445,21 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
         <div className="flex justify-center gap-3">
           {[0, 1, 2].map(i => {
             const topFaceUpCard = myFaceUpTopCards[i];
+            const allowFaceUpSelection = isMyTurn && (
+              isSwapPhase ||
+              (
+                source === 'faceUp' &&
+                (
+                  state.mustPlayMatchingTableValue === null ||
+                  topFaceUpCard?.value === state.mustPlayMatchingTableValue
+                )
+              )
+            );
             return (
               <div key={i}>
                 {renderTableStack(myPlayer.faceDown[i], myPlayer.faceUp[i], {
                   allowFaceDownPlay: isMyTurn && source === 'faceDown',
-                  allowFaceUpSelection: isMyTurn && (isSwapPhase || source === 'faceUp'),
+                  allowFaceUpSelection,
                   faceUpSelected: topFaceUpCard
                     ? (isSwapPhase ? swapSource?.id === topFaceUpCard.id : selectedCards.includes(topFaceUpCard.id))
                     : false,
