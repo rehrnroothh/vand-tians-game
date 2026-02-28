@@ -102,4 +102,46 @@ describe('playCards - twos chain', () => {
     expect(afterTwo.mustCoverTwo).toBe(true);
     expect(afterTwo.players[0].hand.map((currentCard) => currentCard.id)).toEqual(['draw-6']);
   });
+
+  it('keeps the turn when the last hand card matches a face-up table card', () => {
+    const stateWithMatchingTableCard: GameState = {
+      ...createState(),
+      players: [
+        {
+          name: 'Alice',
+          hand: [card('last-seven', 7)],
+          faceUp: [card('table-seven', 7)],
+          faceDown: [card('hidden', 9)],
+        },
+        createState().players[1],
+      ],
+    };
+
+    const afterPlay = playCards(stateWithMatchingTableCard, ['last-seven']);
+
+    expect(afterPlay.currentPlayerIndex).toBe(0);
+    expect(afterPlay.players[0].hand).toHaveLength(0);
+    expect(afterPlay.players[0].faceUp.map((currentCard) => currentCard.id)).toContain('table-seven');
+    expect(afterPlay.message).toContain('matchande uppvänt bordskort');
+  });
+
+  it('passes the turn when the last hand card does not match a face-up table card', () => {
+    const stateWithoutMatchingTableCard: GameState = {
+      ...createState(),
+      players: [
+        {
+          name: 'Alice',
+          hand: [card('last-seven', 7)],
+          faceUp: [card('table-nine', 9)],
+          faceDown: [card('hidden', 8)],
+        },
+        createState().players[1],
+      ],
+    };
+
+    const afterPlay = playCards(stateWithoutMatchingTableCard, ['last-seven']);
+
+    expect(afterPlay.currentPlayerIndex).toBe(1);
+    expect(afterPlay.message).toBe('Bobs tur.');
+  });
 });

@@ -72,6 +72,7 @@ const Spelregler = () => {
           <h2 className="mb-3 text-lg font-semibold text-foreground">Värt att tänka på</h2>
           <ul className="space-y-3 text-sm leading-7 text-muted-foreground">
             <li>Du kan lägga flera kort samtidigt, men bara om de har samma värde.</li>
+            <li>Om ditt sista handkort matchar ett uppvänt bordskort får du lägga det direkt i samma tur.</li>
             <li>Du får inte ta upp högen om du precis har lagt en 2:a och måste täcka den.</li>
             <li>Första spelaren som blir av med alla sina kort vinner direkt.</li>
           </ul>

@@ -346,12 +346,22 @@ export const playCards = (
   if (source === 'hand') {
     refillHand(player, newState.drawPile);
   }
+
+  const canContinueFromTableWithMatch =
+    source === 'hand' &&
+    player.hand.length === 0 &&
+    player.faceUp.some(faceUpCard => faceUpCard.value === cards[0].value);
   
   // Check win
   if (hasWon(player)) {
     newState.winner = newState.currentPlayerIndex;
     newState.phase = 'finished';
     newState.message = `🎉 ${player.name} vinner!`;
+    return newState;
+  }
+
+  if (canContinueFromTableWithMatch) {
+    newState.message = `${player.name} kan fortsätta direkt med matchande uppvänt bordskort.`;
     return newState;
   }
   
