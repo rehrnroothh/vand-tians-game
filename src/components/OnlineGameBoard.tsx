@@ -102,6 +102,22 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     };
   }, [roomId]);
 
+  const isFinished = state?.phase === 'finished';
+  const winner = isFinished && state && state.winner !== null ? state.players[state.winner] : null;
+
+  useEffect(() => {
+    if (!isFinished) {
+      setShowWinState(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowWinState(true);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [isFinished]);
+
   if (!state) return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
@@ -265,7 +281,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
           {showFaceUp && (
             <div className="absolute inset-0 z-10">
               {stackCount > 1 && (
-                <div className="absolute inset-x-1 top-1 bottom-0 rounded-lg border border-border/30 bg-card/40" />
+                <div className="pointer-events-none absolute inset-x-1 top-1 bottom-0 rounded-lg border border-border/30 bg-card/40" />
               )}
               <MiniCard
                 card={faceUpCard}
@@ -275,7 +291,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
                 onClick={options?.onFaceUpClick}
               />
               {stackCount > 1 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                <span className="pointer-events-none absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                   {stackCount}
                 </span>
               )}
@@ -285,22 +301,6 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       );
     };
   
-
-  const isFinished = state.phase === 'finished';
-  const winner = isFinished ? state.players[state.winner!] : null;
-
-  useEffect(() => {
-    if (!isFinished) {
-      setShowWinState(false);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setShowWinState(true);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [isFinished]);
 
   return (
     <div className="flex flex-col min-h-screen p-4 pt-14 pb-6 relative">

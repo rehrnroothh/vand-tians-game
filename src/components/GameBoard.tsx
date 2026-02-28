@@ -252,7 +252,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
           {showFaceUp && (
             <div className="absolute inset-0 z-10">
               {stackCount > 1 && (
-                <div className="absolute inset-x-1 top-1 bottom-0 rounded-lg border border-border/30 bg-card/40" />
+                <div className="pointer-events-none absolute inset-x-1 top-1 bottom-0 rounded-lg border border-border/30 bg-card/40" />
               )}
               <MiniCard
                 card={faceUpCard}
@@ -262,7 +262,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
                 onClick={options?.onFaceUpClick}
               />
               {stackCount > 1 && (
-                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                <span className="pointer-events-none absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                   {stackCount}
                 </span>
               )}
