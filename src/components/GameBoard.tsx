@@ -27,8 +27,8 @@ interface GameBoardProps {
 }
 
 const ORJAN_LOSING_LINES = [
-  'Örjan Lax: “Jaha. Kul. Då var det alltså riggat, kukkannen.”',
-  'Örjan Lax: "Din jävla BillyButt-kopia, det där räknas inte. Reglerna är ju felprogrammerade”',,
+  'Örjan Lax: “Jaha. Kul. Då var det alltså riggat, kukkannen!”',
+  'Örjan Lax: "Din jävla Viktor-till-kassa-5-kopia, det där räknas inte. Reglerna är ju felprogrammerade”',,
   'Örjan Lax: "Om du ska fuska kan vi lika gärna lägga ned denna skit med en gång.”',
   'Örjan Lax: "Okej, grattis då förfan. Men det här säger mer om spelet än om mig.”',
   'Örjan Lax: "Jag förlorade inte. Jag avbröt.”',
