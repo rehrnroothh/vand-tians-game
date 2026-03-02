@@ -17,7 +17,7 @@ import {
 } from '@/lib/gameEngine';
 import { updateGameState } from '@/lib/roomService';
 import MiniCard from './MiniCard';
-import { ArrowUp, Hand, RotateCcw } from 'lucide-react';
+import { ArrowUp, Hand, RotateCcw, Download } from 'lucide-react';
 
 interface OnlineGameBoardProps {
   roomId: string;
@@ -473,8 +473,8 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
               </button>
             )}
             {canPickUpPile && (
-              <button onClick={handlePickUp} className="px-5 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold">
-                Ta upp högen
+              <button onClick={handlePickUp} className="px-5 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold flex items-center justify-center gap-2">
+                <Download size={16} /> Ta upp högen
               </button>
             )}
             

@@ -18,7 +18,7 @@ import {
   getFaceUpTopCards,
   normalizeGameState,
 } from '@/lib/gameEngine';
-import { RotateCcw, ArrowUp, Hand } from 'lucide-react';
+import { RotateCcw, ArrowUp, Hand, Download } from 'lucide-react';
 import { chooseRobotPlayDecision, chooseRobotSwapDecision } from '@/lib/robotAi';
 
 interface GameBoardProps {
@@ -530,7 +530,7 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
                 disabled={!isMyTurn}
                 className="px-5 py-3 rounded-xl bg-secondary text-secondary-foreground font-semibold flex items-center gap-2"
               >
-                Ta upp högen
+                <Download size={16} /> Ta upp högen
               </motion.button>
             )}
             

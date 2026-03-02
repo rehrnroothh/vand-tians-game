@@ -102,7 +102,7 @@ export const getFaceUpTopCards = (player: Player): Array<Card | undefined> =>
   normalizeFaceUpStacks(player.faceUp as unknown as Card[][] | Card[]).map((stack) => stack[stack.length - 1]);
 
 
-const turnMessageForPlayer = (name: string, suffix = '.'): string =>
+const turnMessageForPlayer = (name: string, suffix = '!'): string =>
   name.toLowerCase() === 'du' ? `Din tur${suffix}` : `${name}s tur${suffix}`;
 
 
@@ -291,7 +291,7 @@ export const confirmSwap = (state: GameState, playerIndex: number): GameState =>
   // Check if all confirmed
   if (newState.swapConfirmed.every(Boolean)) {
     newState.phase = 'play';
-    newState.message = `${turnMessageForPlayer(newState.players[0].name, '')} — spela ett kort!`;
+    newState.message = `${turnMessageForPlayer(newState.players[0].name, '')}!`;
   } else {
     // Move to next unconfirmed player
     let next = (playerIndex + 1) % newState.players.length;
@@ -332,7 +332,7 @@ export const playCards = (
       newState.discardPile = [];
       newState.lastPlayedCards = [];
       // Turn does NOT pass – the player who picked up starts playing
-      newState.message = `${player.name} vände ett ${cardLabel(card.value)} — fick ta upp högen och spelar vidare.`;
+      newState.message = `${player.name} vände ett ${cardLabel(card.value)}, fick ta upp högen och spelar vidare`;
       return newState;
     }
     
@@ -394,12 +394,12 @@ export const playCards = (
     if (hasWon(player)) {
       newState.winner = newState.currentPlayerIndex;
       newState.phase = 'finished';
-      newState.message = `🎉 ${player.name} vinner!!!!!`;
+      newState.message = ` ${player.name} FTW!!!!!`;
       return newState;
     }
     
     // Same player goes again after clearing
-    newState.message = `${isTen ? '🔥 Tia!' : '💥 Fyra lika!'} Högen rensad! ${player.name} spelar igen.`;
+    newState.message = `${isTen ? '🔥 Tia!' : '🔥 Fyra lika!'} Högen rensad! ${player.name} spelar igen.`;
     return newState;
   }
 
@@ -429,7 +429,7 @@ export const playCards = (
     // A 2 was just played (without clearing). Same player must immediately play again.
     newState.mustCoverTwo = true;
     newState.mustCoverTwoPlayerIndex = newState.currentPlayerIndex;
-    newState.message = `${player.name} spelade en 2️⃣ — spela ett kort ovanpå tvåan innan turen går vidare.`;
+    newState.message = `${player.name} spelade en 2:a, spela ett kort ovanpå tvåan innan turen går vidare!`;
     return newState;
   }
   
@@ -451,7 +451,7 @@ export const playCards = (
   if (hasWon(player)) {
     newState.winner = newState.currentPlayerIndex;
     newState.phase = 'finished';
-    newState.message = `🎉 ${player.name} vinner!`;
+    newState.message = ` ${player.name} vinner!`;
     return newState;
   }
 
@@ -509,7 +509,7 @@ export const drawAndTryFromTalong = (state: GameState): GameState => {
     newState.discardPile = [];
     newState.lastPlayedCards = [];
     // Turn does NOT pass – the player who picked up starts playing
-    newState.message = `${player.name} drog en ${cardLabel(drawn.value)} men kunde inte spela — tog upp högen och spelar vidare.`;
+    newState.message = `${player.name} drog en ${cardLabel(drawn.value)} och kunde inte spela, tog därför upp högen och spelar vidare`;
     return newState;
   }
 
@@ -543,7 +543,7 @@ export const pickUpPile = (state: GameState): GameState => {
   newState.lastPlayedCards = [];
   newState.mustPlayMatchingTableValue = null;
   // Turn does NOT pass – the player who picked up starts playing
-  newState.message = `${player.name} tog upp högen och spelar vidare.`;
+  newState.message = `${player.name} tog upp högen och spelar vidare`;
   
   return newState;
 };
