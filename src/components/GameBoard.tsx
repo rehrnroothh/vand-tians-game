@@ -99,9 +99,9 @@ const GameBoard = ({ initialState, onReset }: GameBoardProps) => {
   const isFinished = state.phase === 'finished';
   const winnerIndex = state.winner;
   const winner = winnerIndex !== null ? state.players[winnerIndex] : currentPlayer;
-  const orjanIndex = state.players.findIndex((player) => isRobotPlayer(player.name));
-  const orjanWon = winnerIndex !== null && winnerIndex === orjanIndex;
-  const humanWonAgainstOrjan = winnerIndex !== null && winnerIndex === myPlayerIndex && orjanIndex !== -1;
+  const hasRobotPlayers = state.players.some((player) => isRobotPlayer(player.name));
+  const orjanWon = winnerIndex !== null && isRobotPlayer(state.players[winnerIndex].name);
+  const humanWonAgainstOrjan = winnerIndex !== null && winnerIndex === myPlayerIndex && hasRobotPlayers;
   const mustCoverTwoNow =
     state.mustCoverTwo && state.mustCoverTwoPlayerIndex === state.currentPlayerIndex;
 

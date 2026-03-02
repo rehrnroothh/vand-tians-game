@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { createRoom, joinRoom } from '@/lib/roomService';
-import { Loader2, Plus, LogIn, ChevronsRight } from 'lucide-react';
+import { Loader2, Plus, ChevronsRight } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import { Link } from 'react-router-dom';
 
 interface LobbyScreenProps {
   onJoined: (roomId: string, roomCode: string, sessionId: string, playerName: string, isHost: boolean) => void;
-  onStartSinglePlayer: () => void;
+  onStartSinglePlayer: (orjanCount: number) => void;
 }
 
 const LobbyScreen = ({ onJoined, onStartSinglePlayer }: LobbyScreenProps) => {
-  const [mode, setMode] = useState<'home' | 'create' | 'join'>('home');
+  const [mode, setMode] = useState<'home' | 'create' | 'join' | 'single'>('home');
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [orjanCount, setOrjanCount] = useState(1);
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -68,7 +70,8 @@ const LobbyScreen = ({ onJoined, onStartSinglePlayer }: LobbyScreenProps) => {
             <button onClick={() => setMode('join')} className="w-full py-4 rounded-xl bg-secondary text-secondary-foreground font-semibold text-lg flex items-center justify-center gap-2">
               <ChevronsRight size={20} /> Gå med i rum
             </button>
-            <button onClick={onStartSinglePlayer} className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg flex items-center justify-center gap-2">              Kör mot Örjan Lax 24/7 
+            <button onClick={() => setMode('single')} className="w-full py-4 rounded-xl bg-emerald-600 text-white font-semibold text-lg flex items-center justify-center gap-2">
+              Kör mot Örjan Lax 24/7
             </button>
             <Link
               to="/spelregler"
@@ -117,6 +120,48 @@ const LobbyScreen = ({ onJoined, onStartSinglePlayer }: LobbyScreenProps) => {
               className="w-full py-4 rounded-xl bg-gold text-primary-foreground font-semibold text-lg glow-gold disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 size={20} className="animate-spin" /> : mode === 'create' ? 'Skapa rum' : 'Gå med'}
+            </button>
+
+            <button onClick={() => setMode('home')} className="w-full py-2 text-muted-foreground text-sm">
+              ← Tillbaka
+            </button>
+          </div>
+        )}
+
+        {mode === 'single' && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-card/60 p-5">
+              <p className="text-center text-white">Hur många Örjans vill du möta?</p>
+              <div className="mt-4 rounded-2xl bg-emerald-600/20 py-5 text-center">
+                <p className="text-5xl font-bold text-white">{orjanCount}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.25em] text-emerald-200">
+                  {orjanCount === 1 ? 'Örjan' : 'Örjans'}
+                </p>
+              </div>
+
+              <div className="mt-6 px-2">
+                <Slider
+                  min={1}
+                  max={3}
+                  step={1}
+                  value={[orjanCount]}
+                  onValueChange={(value) => setOrjanCount(value[0] ?? 1)}
+                  aria-label="Antal Örjans"
+                  className="[&_[role=slider]]:h-6 [&_[role=slider]]:w-6"
+                />
+                <div className="mt-2 flex justify-between text-sm font-medium text-muted-foreground">
+                  <span>1</span>
+                  <span>2</span>
+                  <span>3</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onStartSinglePlayer(orjanCount)}
+              className="w-full rounded-xl bg-emerald-600 px-4 py-4 text-lg font-semibold text-white transition-transform hover:scale-[1.02]"
+            >
+              Starta mot {orjanCount} {orjanCount === 1 ? 'Örjan' : 'Örjans'}
             </button>
 
             <button onClick={() => setMode('home')} className="w-full py-2 text-muted-foreground text-sm">

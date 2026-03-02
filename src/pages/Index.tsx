@@ -63,10 +63,13 @@ const Index = () => {
     setScreen('game');
   };
 
-  const handleSinglePlayerStart = () => {
+  const handleSinglePlayerStart = (orjanCount: number) => {
     const playerName = 'Du';
+    const robotNames = Array.from({ length: orjanCount }, (_, index) =>
+      orjanCount === 1 ? 'Örjan' : `Örjan ${index + 1}`,
+    );
 
-    const game = dealGame([playerName, 'Örjan']);
+    const game = dealGame([playerName, ...robotNames]);
     setSinglePlayerState(game);
     setScreen('single');
   };
