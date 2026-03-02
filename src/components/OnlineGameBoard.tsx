@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { DragEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -15,6 +15,7 @@ import {
   getFaceUpTopCards,
   normalizeGameState,
 } from '@/lib/gameEngine';
+import { setCardDragPreview } from '@/lib/dragPreview';
 import { updateGameState } from '@/lib/roomService';
 import MiniCard from './MiniCard';
 import { ArrowUp, Hand, RotateCcw, Download } from 'lucide-react';
@@ -26,15 +27,35 @@ interface OnlineGameBoardProps {
   onReset: () => void;
 }
 
+interface TouchDragState {
+  pointerId: number;
+  cardIds: string[];
+  leadCard: Card;
+  sourceId: string;
+  sourceType: 'hand' | 'faceUp' | 'faceDown';
+  faceDown: boolean;
+  small: boolean;
+  started: boolean;
+  originX: number;
+  originY: number;
+  x: number;
+  y: number;
+}
+
 const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGameBoardProps) => {
   const [state, setState] = useState<GameState | null>(null);
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
   const [swapSource, setSwapSource] = useState<{ type: 'hand' | 'faceUp'; id: string } | null>(null);
+  const [draggedCardIds, setDraggedCardIds] = useState<string[]>([]);
+  const [touchDrag, setTouchDrag] = useState<TouchDragState | null>(null);
   const [showWinState, setShowWinState] = useState(false);
   const [disconnectNotice, setDisconnectNotice] = useState<string | null>(null);
   const stateRef = useRef<GameState | null>(null);
   const roomPlayerCountRef = useRef<number | null>(null);
   const disconnectNoticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchDragRef = useRef<TouchDragState | null>(null);
+  const discardPileRef = useRef<HTMLDivElement | null>(null);
+  const suppressTouchClickUntilRef = useRef(0);
 
   // Keep ref in sync for subscription callback
   useEffect(() => { stateRef.current = state; }, [state]);
@@ -137,6 +158,20 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
   const mustCoverTwoNow =
     state.mustCoverTwo && state.mustCoverTwoPlayerIndex === state.currentPlayerIndex;
 
+  const setTouchDragState = (nextState: TouchDragState | null) => {
+    touchDragRef.current = nextState;
+    setTouchDrag(nextState);
+  };
+
+  const suppressNextTouchClick = () => {
+    suppressTouchClickUntilRef.current = Date.now() + 400;
+  };
+
+  const shouldIgnoreTouchClick = () => Date.now() < suppressTouchClickUntilRef.current;
+
+  const findMyCardById = (cardId: string) =>
+    [...(me?.hand ?? []), ...meFaceUpCards, ...(me?.faceDown ?? [])].find((card) => card.id === cardId);
+
   const applyAndSync = async (newState: GameState) => {
     const normalizedState = normalizeGameState(newState);
     setState(normalizedState);
@@ -194,6 +229,8 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     } else {
       setSelectedCards([]);
     }
+    setDraggedCardIds([]);
+    setTouchDragState(null);
     await applyAndSync(newState);
   };
 
@@ -201,6 +238,8 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     if (!isMyTurn) return;
     await applyAndSync(pickUpPile(state));
     setSelectedCards([]);
+    setDraggedCardIds([]);
+    setTouchDragState(null);
   };
 
   const handleSwapClick = (type: 'hand' | 'faceUp', id: string) => {
@@ -216,13 +255,225 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     }
   };
 
+  const performSwap = (sourceType: 'hand' | 'faceUp', sourceId: string, targetType: 'hand' | 'faceUp', targetId: string) => {
+    const handId = sourceType === 'hand' ? sourceId : targetId;
+    const faceUpId = sourceType === 'faceUp' ? sourceId : targetId;
+    setState(swapCards(state, playerIndex, handId, faceUpId));
+    setSwapSource(null);
+  };
+
   const handleConfirmSwap = async () => {
     if (!me) return;
     const newState = confirmSwap(state, playerIndex);
     setState(newState);
     setSwapSource(null);
+    setTouchDragState(null);
     await updateGameState(roomId, newState);
   };
+
+  const resolveDraggedCardIds = (cardId: string) => {
+    const sourceCards = source === 'hand' ? me?.hand ?? [] : source === 'faceUp' ? meFaceUpCards : me?.faceDown ?? [];
+    const baseCardIds = source === 'faceUp' ? getFaceUpValueCardIds(cardId) : [cardId];
+
+    if (selectedCards.includes(cardId)) {
+      return selectedCards;
+    }
+
+    if (selectedCards.length > 0) {
+      const selectedLeadCard = sourceCards.find((card) => card.id === selectedCards[0]);
+      const draggedLeadCard = sourceCards.find((card) => card.id === baseCardIds[0]);
+
+      if (
+        selectedLeadCard &&
+        draggedLeadCard &&
+        selectedLeadCard.value === draggedLeadCard.value
+      ) {
+        return [...new Set([...selectedCards, ...baseCardIds])];
+      }
+    }
+
+    return baseCardIds;
+  };
+
+  const handleCardDragStart = (event: DragEvent<HTMLDivElement>, cardId: string) => {
+    if (!isMyTurn) return;
+    const cardIds = resolveDraggedCardIds(cardId);
+    if (cardIds.length === 0) return;
+
+    const draggedCards = cardIds
+      .map((id) => findMyCardById(id))
+      .filter(Boolean) as Card[];
+
+    setDraggedCardIds(cardIds);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', cardId);
+    setCardDragPreview(event, draggedCards[0], cardIds.length, source === 'faceDown');
+  };
+
+  const handleCardDragEnd = () => {
+    setDraggedCardIds([]);
+  };
+
+  const handleCardDropOnCard = (event: DragEvent<HTMLDivElement>, onClick?: () => void) => {
+    event.preventDefault();
+    if (!isMyTurn) return;
+    onClick?.();
+    setDraggedCardIds([]);
+  };
+
+  const playCardIds = async (cardsToPlay: string[]) => {
+    if (!isMyTurn || isSwapPhase) return;
+    if (cardsToPlay.length === 0) return;
+
+    const newState = playCards(state, cardsToPlay);
+    if (newState.currentPlayerIndex === playerIndex && newState.mustPlayMatchingTableValue !== null) {
+      setSelectedCards(
+        getFaceUpValueCardIdsForPlayer(
+          newState.players[playerIndex],
+          newState.mustPlayMatchingTableValue,
+        ),
+      );
+    } else {
+      setSelectedCards([]);
+    }
+    setDraggedCardIds([]);
+    setTouchDragState(null);
+    await applyAndSync(newState);
+  };
+
+  const playDraggedOrSelectedCards = async () => {
+    const cardsToPlay = draggedCardIds.length > 0 ? draggedCardIds : selectedCards;
+    await playCardIds(cardsToPlay);
+  };
+
+  const isPointOverDiscardPile = (x: number, y: number) => {
+    const rect = discardPileRef.current?.getBoundingClientRect();
+    return !!rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  };
+
+  const handleTouchCardPointerDown = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    cardId: string,
+    card: Card,
+    options?: {
+      enabled?: boolean;
+      faceDown?: boolean;
+      small?: boolean;
+      sourceType?: 'hand' | 'faceUp' | 'faceDown';
+    },
+  ) => {
+    if (event.pointerType === 'mouse' || !isMyTurn || options?.enabled === false) return;
+
+    const sourceType = options?.sourceType ?? 'hand';
+    const cardIds = isSwapPhase ? [cardId] : resolveDraggedCardIds(cardId);
+    if (cardIds.length === 0) return;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setTouchDragState({
+      pointerId: event.pointerId,
+      cardIds,
+      leadCard: card,
+      sourceId: cardId,
+      sourceType,
+      faceDown: options?.faceDown ?? false,
+      small: options?.small ?? false,
+      started: false,
+      originX: event.clientX,
+      originY: event.clientY,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
+  const handleTouchCardPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const currentDrag = touchDragRef.current;
+    if (!currentDrag || currentDrag.pointerId !== event.pointerId) return;
+
+    event.preventDefault();
+    const distance = Math.hypot(event.clientX - currentDrag.originX, event.clientY - currentDrag.originY);
+    const started = currentDrag.started || distance > 8;
+
+    if (started && !currentDrag.started) {
+      setDraggedCardIds(currentDrag.cardIds);
+      if (isSwapPhase && currentDrag.sourceType !== 'faceDown') {
+        setSwapSource({ type: currentDrag.sourceType, id: currentDrag.sourceId });
+      } else if (!currentDrag.faceDown) {
+        setSelectedCards(currentDrag.cardIds);
+      }
+    }
+
+    setTouchDragState({
+      ...currentDrag,
+      started,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  };
+
+  const handleTouchCardPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const currentDrag = touchDragRef.current;
+    if (!currentDrag || currentDrag.pointerId !== event.pointerId) return;
+
+    event.preventDefault();
+    suppressNextTouchClick();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    const swapTargetElement = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLElement>('[data-swap-card-id]');
+    const swapTargetId = swapTargetElement?.dataset.swapCardId;
+    const swapTargetType = swapTargetElement?.dataset.swapCardType as 'hand' | 'faceUp' | undefined;
+    const shouldPlay = !isSwapPhase && currentDrag.started && isPointOverDiscardPile(event.clientX, event.clientY);
+    setDraggedCardIds([]);
+
+    if (!currentDrag.started) {
+      if (isSwapPhase && currentDrag.sourceType !== 'faceDown') {
+        handleSwapClick(currentDrag.sourceType, currentDrag.sourceId);
+      } else {
+        toggleSelect(currentDrag.sourceId);
+      }
+      setTouchDragState(null);
+      return;
+    }
+
+    if (
+      isSwapPhase &&
+      currentDrag.sourceType !== 'faceDown'
+    ) {
+      if (
+        swapTargetId &&
+        swapTargetType &&
+        swapTargetType !== currentDrag.sourceType
+      ) {
+        performSwap(currentDrag.sourceType, currentDrag.sourceId, swapTargetType, swapTargetId);
+      } else {
+        setSwapSource({ type: currentDrag.sourceType, id: currentDrag.sourceId });
+      }
+      setTouchDragState(null);
+      return;
+    }
+
+    if (shouldPlay) {
+      void playCardIds(currentDrag.cardIds);
+      return;
+    }
+
+    if (currentDrag.started && !currentDrag.faceDown) {
+      setSelectedCards(currentDrag.cardIds);
+    }
+
+    setTouchDragState(null);
+  };
+
+  const handleDropOnDiscardPile = async (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    await playDraggedOrSelectedCards();
+  };
+
+
 
   const sourceCards = source === 'hand' ? me?.hand ?? [] : source === 'faceUp' ? meFaceUpCards : [];
   const hasPlayableCard = sourceCards.some(c => canPlayCard(c, state.discardPile));
@@ -258,7 +509,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
     ) => {
       const faceUpCard = faceUpStack[faceUpStack.length - 1];
       const stackCount = faceUpStack.length;
-      const showFaceDown = !!faceDownCard;
+      const showFaceDown = !!faceDownCard && !faceUpCard;
       const showFaceUp = !!faceUpCard;
   
       if (!showFaceDown && !showFaceUp) {
@@ -275,20 +526,53 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
                 small
                 disabled={!options?.allowFaceDownPlay}
                 onClick={options?.onFaceDownClick}
+                draggable={!!options?.allowFaceDownPlay}
+                onNativeDragStart={(event) => faceDownCard && handleCardDragStart(event, faceDownCard.id)}
+                onNativeDragEnd={handleCardDragEnd}
+                onNativeDragOver={(event) => event.preventDefault()}
+                onNativeDrop={(event) => handleCardDropOnCard(event, options?.onFaceDownClick)}
+                onNativePointerDown={(event) =>
+                  faceDownCard && handleTouchCardPointerDown(event, faceDownCard.id, faceDownCard, {
+                    enabled: !!options?.allowFaceDownPlay,
+                    faceDown: true,
+                    small: true,
+                    sourceType: 'faceDown',
+                  })
+                }
+                onNativePointerMove={handleTouchCardPointerMove}
+                onNativePointerUp={handleTouchCardPointerEnd}
+                onNativePointerCancel={handleTouchCardPointerEnd}
+
               />
             </div>
           )}
           {showFaceUp && (
             <div className="absolute inset-0 z-10">
-              {stackCount > 1 && (
-                <div className="pointer-events-none absolute inset-x-1 top-1 bottom-0 rounded-lg border border-border/30 bg-card/40" />
-              )}
               <MiniCard
                 card={faceUpCard}
                 small
+                shadowless={stackCount > 1}
                 selected={options?.faceUpSelected}
                 disabled={!options?.allowFaceUpSelection}
                 onClick={options?.onFaceUpClick}
+                draggable={!!options?.allowFaceUpSelection}
+                onNativeDragStart={(event) => faceUpCard && handleCardDragStart(event, faceUpCard.id)}
+                onNativeDragEnd={handleCardDragEnd}
+                onNativeDragOver={(event) => event.preventDefault()}
+                onNativeDrop={(event) => handleCardDropOnCard(event, options?.onFaceUpClick)}
+                onNativePointerDown={(event) =>
+                  faceUpCard && handleTouchCardPointerDown(event, faceUpCard.id, faceUpCard, {
+                    enabled: !!options?.allowFaceUpSelection,
+                    small: true,
+                    sourceType: 'faceUp',
+                  })
+                }
+                onNativePointerMove={handleTouchCardPointerMove}
+                onNativePointerUp={handleTouchCardPointerEnd}
+                onNativePointerCancel={handleTouchCardPointerEnd}
+                swapDropCardId={isSwapPhase ? faceUpCard.id : undefined}
+                swapDropType={isSwapPhase ? 'faceUp' : undefined}
+
               />
               {stackCount > 1 && (
                 <span className="pointer-events-none absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
@@ -305,6 +589,40 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
   return (
     <div className="flex flex-col min-h-screen p-4 pt-14 pb-6 relative">
       <div className="gradient-radial fixed inset-0 pointer-events-none" />
+      {touchDrag?.started && (
+        <div
+          className="pointer-events-none fixed z-40"
+          style={{
+            left: touchDrag.x,
+            top: touchDrag.y,
+            transform: 'translate(-50%, -62%)',
+          }}
+        >
+          <div className="relative">
+            {touchDrag.cardIds.length > 1 && (
+              <div className="absolute left-2 top-1 opacity-25">
+                <MiniCard
+                  card={touchDrag.leadCard}
+                  faceDown={touchDrag.faceDown}
+                  small={touchDrag.small}
+                  shadowless
+                />
+              </div>
+            )}
+            <MiniCard
+              card={touchDrag.leadCard}
+              faceDown={touchDrag.faceDown}
+              small={touchDrag.small}
+              shadowless
+            />
+            {touchDrag.cardIds.length > 1 && (
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow-lg">
+                {touchDrag.cardIds.length}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className={showWinState ? 'opacity-35 pointer-events-none transition-opacity' : 'transition-opacity'}>
 
@@ -386,7 +704,17 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
           </span>
           <div className={`mx-auto mt-1 h-0.5 w-14 rounded-full transition-opacity ${isMyTurn && canTryTalong ? 'bg-emerald-400 opacity-100' : 'bg-transparent opacity-0'}`} />
         </div>
-        <div className="text-center">
+        <div
+          ref={discardPileRef}
+          className="text-center"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleDropOnDiscardPile}
+          onClick={() => {
+            if (shouldIgnoreTouchClick()) return;
+            void playDraggedOrSelectedCards();
+          }}
+        >
+
           {topDiscard ? <MiniCard card={topDiscard} /> : (
             <div className="w-14 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center">
               <span className="text-xs text-foreground/70">Tom</span>
@@ -417,12 +745,18 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
                 <div key={i}>
                   {renderTableStack(me.faceDown[i], me.faceUp[i], {
                     allowFaceDownPlay: isMyTurn && source === 'faceDown',
-                    allowFaceUpSelection,
-                    faceUpSelected: topFaceUpCard
-                      ? (isSwapPhase ? swapSource?.id === topFaceUpCard.id : selectedCards.includes(topFaceUpCard.id))
-                      : false,
-                    onFaceDownClick: () => isMyTurn && source === 'faceDown' && me.faceDown[i] && toggleSelect(me.faceDown[i].id),
+                  allowFaceUpSelection,
+                  faceUpSelected: topFaceUpCard
+                    ? (isSwapPhase ? swapSource?.id === topFaceUpCard.id : selectedCards.includes(topFaceUpCard.id))
+                    : false,
+                    onFaceDownClick: () => {
+                      if (shouldIgnoreTouchClick()) return;
+                      if (isMyTurn && source === 'faceDown' && me.faceDown[i]) {
+                        toggleSelect(me.faceDown[i].id);
+                      }
+                    },
                     onFaceUpClick: () => {
+                      if (shouldIgnoreTouchClick()) return;
                       if (!topFaceUpCard) return;
                       if (isSwapPhase) handleSwapClick('faceUp', topFaceUpCard.id);
                       else if (source === 'faceUp' && isMyTurn) toggleSelect(topFaceUpCard.id);
@@ -446,7 +780,26 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
               <MiniCard key={card.id} card={card}
                 selected={isSwapPhase ? swapSource?.id === card.id : selectedCards.includes(card.id)}
                 disabled={!isMyTurn || (!isSwapPhase && source !== 'hand')}
+                draggable={isMyTurn && (isSwapPhase || source === 'hand')}
+                onNativeDragStart={(event) => handleCardDragStart(event, card.id)}
+                onNativeDragEnd={handleCardDragEnd}
+                onNativeDragOver={(event) => event.preventDefault()}
+                onNativeDrop={(event) => handleCardDropOnCard(event, () => {
+                  if (isSwapPhase) handleSwapClick('hand', card.id);
+                  else if (isMyTurn && source === 'hand') toggleSelect(card.id);
+                })}
+                onNativePointerDown={(event) => handleTouchCardPointerDown(event, card.id, card, {
+                  enabled: isMyTurn && (isSwapPhase || source === 'hand'),
+                  sourceType: 'hand',
+                })}
+                onNativePointerMove={handleTouchCardPointerMove}
+                onNativePointerUp={handleTouchCardPointerEnd}
+                onNativePointerCancel={handleTouchCardPointerEnd}
+                swapDropCardId={isSwapPhase ? card.id : undefined}
+                swapDropType={isSwapPhase ? 'hand' : undefined}
+
                 onClick={() => {
+                  if (shouldIgnoreTouchClick()) return;
                   if (isSwapPhase) handleSwapClick('hand', card.id);
                   else if (isMyTurn && source === 'hand') toggleSelect(card.id);
                 }}
@@ -460,7 +813,7 @@ const OnlineGameBoard = ({ roomId, sessionId, playerIndex, onReset }: OnlineGame
       <div className="flex gap-3 justify-center mt-4">
         {isSwapPhase ? (
           <button onClick={handleConfirmSwap} className="px-6 py-3 rounded-xl bg-gold text-white font-semibold glow-gold">
-            ✓ Klar med byten
+            Klar med byten
           </button>
         ) : isMyTurn ? (
           <>
